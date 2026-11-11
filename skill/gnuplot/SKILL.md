@@ -76,6 +76,8 @@ variance explained or neighborhood caveats, never read distances in UMAP/t-SNE a
   so the base doesn't float, `set view <rot_x>, <rot_z>, <scale>`. `set hidden3d` for wireframes.
 - Voxels: `set vgrid $g size N` *then* `set vxrange/vyrange/vzrange`; `vfill` adds a kernel around data points
   (`VoxelDistance`); `splot $g with isosurface level L`.
+- Random data: there is no `set seed`. `rand(0)` starts from fixed default seeds, so a script gives the same numbers
+  on every run; `rand(N)` (N > 0) reseeds, `rand(-1)` restores the defaults. `invnorm(rand(0))` gives normal noise.
 - Fits: `set fit errorvariables` gives `<param>_err`; start parameters non-zero and of the right magnitude; report
   reduced chi² (`FIT_WSSR/FIT_NDF`) and look at residuals.
 - Log axes: `set logscale x 10; set format x "10^{%L}"` (enhanced text). Time axes: `set xdata time; set timefmt …;

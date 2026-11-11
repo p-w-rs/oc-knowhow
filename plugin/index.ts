@@ -26,6 +26,8 @@ export function parseOptions(raw: unknown): KnowhowOptions {
 
 const SKILLS = fileURLToPath(new URL("../skill/", import.meta.url))
 const EXAMPLES = fileURLToPath(new URL("../examples/", import.meta.url))
+/** Pointer for the agent: verified sources beat memory for anything quoted or cited. */
+export const LIBRARY_HINT = "Reference library (oc-knowhow): before you quote, cite, or state exact wording, numbers, assumptions or syntax from a standard, paper, manual or textbook, check it with library_search (then library_read) and cite the section it returns. Prefer that over memory or web search; say so when the library has nothing."
 const warn = (message: string, error?: unknown) => console.warn(`[${PLUGIN_ID}] ${message}${error ? `: ${error instanceof Error ? error.message : String(error)}` : ""}`)
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value)
 const blocked = (error: unknown) => record(error) && (error.name === "Permission.BlockedError" || (record(error.error) && error.error._tag === "Permission.BlockedError"))
@@ -166,6 +168,11 @@ export function createPlugin(): Plugin.Plugin {
           }))
           skillReady = true
         } catch (error) { warn("skills not registered", error) }
+
+        registrations.push(await ctx.session.hook("context", async input => {
+          if (!settings.current().library || (input.tools && !("library_search" in input.tools))) return
+          input.system.push({ type: "text", text: LIBRARY_HINT } as never)
+        }))
 
         let reloading: Promise<void> | undefined
         const reload = () => { reloading ??= Promise.all([ctx.tool.reload(), skillReady ? ctx.skill.reload() : undefined]).then(() => {}).catch(error => warn("reload failed", error)).finally(() => { reloading = undefined }); return reloading }

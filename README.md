@@ -31,6 +31,8 @@ Everything stays on your computer; nothing is included in the plugin, its releas
   Search combines keywords with meaning-based ranking (the same one-time ~290 MB engine as oc-enhance; shared if
   oc-enhance already downloaded it).
 - OpenCode's read permissions apply to your folders.
+- Agents get a one-line reminder to check the library before quoting or citing anything (exact wording, numbers,
+  syntax), instead of relying on memory.
 
 ## Install
 

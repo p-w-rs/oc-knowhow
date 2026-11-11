@@ -34,7 +34,7 @@ async function host(options: { deny?: (path: string) => boolean } = {}) {
   const tools = new Map<string, { execute: (input: unknown, context: unknown) => Promise<{ content: string }> }>()
   const skills: { id: string; content: string }[] = []
   const transforms: ((editor: any) => void)[] = [], skillTransforms: ((editor: any) => void)[] = []
-  let rpc: any
+  let rpc: any, context: any
   const rebuild = () => { tools.clear(); for (const t of transforms) t({ add: (tool: any) => tools.set(tool.name, tool) }) }
   const rebuildSkills = () => { skills.length = 0; for (const t of skillTransforms) t({ add: (skill: any) => skills.push(skill) }) }
   const ctx = {
@@ -43,11 +43,13 @@ async function host(options: { deny?: (path: string) => boolean } = {}) {
     tool: { transform: async (cb: any) => { transforms.push(cb); rebuild(); return { dispose: async () => {} } }, reload: async () => rebuild() },
     skill: { transform: async (cb: any) => { skillTransforms.push(cb); rebuildSkills(); return { dispose: async () => {} } }, reload: async () => rebuildSkills() },
     rpc: { register: async (_: unknown, handlers: any) => { rpc = handlers; return { dispose: async () => {} } } },
+    session: { hook: async (name: string, cb: any) => { if (name === "context") context = cb; return { dispose: async () => {} } } },
   }
   const cleanup = await createPlugin().setup(ctx as unknown as Plugin.Context) as () => Promise<void>
   const call = async (name: string, input: unknown) => (await tools.get(name)!.execute(input, { sessionID: "s", agent: "build", messageID: "m", id: "c", signal: new AbortController().signal })).content
   const until = async (check: () => Promise<boolean>) => { for (let i = 0; i < 400 && !(await check()); i++) await new Promise(r => setTimeout(r, 50)) }
-  return { data, tools, skills, call, until, cleanup, rpc: () => rpc }
+  const system = async (tools?: Record<string, unknown>) => { const input = { sessionID: "s", system: [] as { text: string }[], tools }; await context?.(input); return input.system.map(item => item.text).join("\n") }
+  return { data, tools, skills, call, until, cleanup, system, rpc: () => rpc }
 }
 
 test("identity, tools, skills grouped by setting, example path filled in", async () => {
@@ -57,8 +59,11 @@ test("identity, tools, skills grouped by setting, example path filled in", async
   assert.deepEqual([...h.tools.keys()].sort(), ["library_catalog", "library_read", "library_search"])
   assert.deepEqual(h.skills.map(s => s.id).sort(), ["datasets", "diagrams", "experiment-design", "field-methods", "gnuplot", "gpu-kernels", "ml-deploy", "ml-training", "stats-inference"])
   assert.match(h.skills.find(s => s.id === "gnuplot")!.content, /examples are in: .*examples\/gnuplot/)
+  assert.match(await h.system(), /library_search/)
+  assert.equal(await h.system({ read: {} }), "", "no hint for agents without the library tools")
   await h.rpc().update({ ml: false, library: false })
   assert.equal(h.tools.size, 0)
+  assert.equal(await h.system(), "")
   assert.ok(!h.skills.some(s => s.id === "ml-deploy"))
   await h.cleanup()
 })
