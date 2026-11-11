@@ -31,7 +31,10 @@ stats-inference) and compare models at equal settings (experiment-design).
 - Multi-class/multi-label: say **macro** (mean over classes; rare classes count equally) vs **micro** (pooled) vs
   weighted. Top-k accuracy for large label sets.
 - **Calibration** (1706.04599): reliability diagram, ECE (state bin count and equal-width vs equal-mass bins; prefer
-  adaptive bins), Brier score, NLL. Fix with temperature scaling on a validation split.
+  adaptive bins), Brier score, NLL. Fix with temperature scaling on a validation split. Tools: `torchmetrics`
+  `MulticlassCalibrationError(num_classes, n_bins=15, norm="l1")` (top-label ECE, equal-width bins);
+  `sklearn.calibration.calibration_curve(y, p, n_bins=…, strategy="quantile")` for equal-mass bins (binary);
+  `CalibratedClassifierCV` / `brier_score_loss` for sklearn models.
 - Operating point metrics: recall at fixed precision (or FPR), cost-weighted error when costs are known.
 
 ## 2. Object detection (COCO conventions)
@@ -51,7 +54,7 @@ sampled at **101 recall points** (0:0.01:1), averaged. **mAP** = mean over class
 | 0 | AP | mean over 10 IoU thresholds, all areas, maxDets 100 (the headline) |
 | 1, 2 | AP50, AP75 | at IoU 0.50 (loose localization) and 0.75 (strict) |
 | 3–5 | AP_S, AP_M, AP_L | objects with area < 32², 32²–96², > 96² pixels |
-| 6–8 | AR1, AR10, AR100 | average recall (over IoU .5:.95) with at most 1/10/100 detections per image |
+| 6–8 | AR1, AR10, AR100 | average recall (over IoU .5:.95) with at most 1/10/100 detections per image (per class, see below) |
 | 9–11 | AR_S, AR_M, AR_L | AR100 by object size |
 
 Facts people get wrong:
@@ -59,13 +62,25 @@ Facts people get wrong:
   data compute it consistently and say which. Size buckets are absolute pixels at the evaluated resolution.
 - AR is the max recall over the PR curve, averaged over IoU thresholds (and classes); it measures how many objects
   are found at all, independent of score calibration. AR1 vs AR100 shows whether the top detection per image is right.
-- maxDets = 100 caps detections **per image** across classes; dense scenes (more than 100 objects) need a higher cap
-  (and say so).
+- In `pycocotools`, maxDets = 100 keeps the top-100 detections **per image and per category** (`evaluateImg` slices
+  each image–class pair), not 100 across classes; other evaluators (LVIS: 300 per image across classes) differ, and
+  models that emit thousands of boxes gain AP from long low-score tails. Dense scenes need a higher cap (say so).
+- Categories (or size buckets) without GT get precision −1 and are excluded from the mean; mask `-1` before
+  averaging `E.eval['precision']` yourself, or an empty class silently drags AP down.
 - AP50 high but AP75 low → localization problem; AP_S far below AP_L → resolution/stride/anchor problem; AR100 high
   but AP low → ranking/score/duplicate problem.
 - Class imbalance: report per-class AP (`class_metrics=True` / `eval.eval['precision'][T,R,K,A,M]`) and the worst
-  classes; mean AP hides them. LVIS (1908.03195) splits rare/common/frequent and caps detections per class; Open
-  Images (1811.00982) uses hierarchy and verified negative labels. Use the benchmark's own evaluator.
+  classes; mean AP hides them. LVIS (1908.03195) splits AP into rare/common/frequent (APr/APc/APf), uses federated
+  labels (unlabeled classes in an image are not penalized) and 300 detections per image; **AP-fixed** (Dave et al.
+  2102.01066) instead caps 10,000 detections per class over the whole set, removing the cross-class ranking
+  dependence — state which. Open Images (1811.00982) uses hierarchy and verified negative labels. Use the
+  benchmark's own evaluator.
+- **Open-vocabulary detection** (OVR-CNN 2011.10678, GLIP 2112.03857): report AP on **novel** (unseen) classes
+  separately from base classes (e.g. COCO 48/17 split AP50_novel, LVIS APr); the text prompts/vocabulary used at
+  test time are part of the setting.
+- **Detection confusion matrix**: match at a fixed IoU (0.5) and score threshold, add a "background" row/column for
+  unmatched predictions (FP) and missed GT (FN); counts depend on both thresholds, so state them. Useful for
+  confusable classes; TIDE (below) weights the same errors by their effect on AP.
 - LRP (1807.01696) combines localization quality, FP and FN into one error and gives an optimal threshold per class;
   useful when you need an operating point, not just ranking quality.
 
@@ -79,11 +94,19 @@ E = COCOeval(gt, dt, iouType="bbox")   # "segm" for masks, "keypoints" for OKS
 E.evaluate(); E.accumulate(); E.summarize(); stats = E.stats           # the 12 numbers above
 # E.params.maxDets = [1, 10, 300]; E.params.catIds = [...]; E.params.areaRng / areaRngLbl to change buckets
 ```
+Gotcha: `summarize()` computes stats[0] with a hard-coded maxDets = 100 (the others use `maxDets[2]`), so with
+`maxDets=[1, 10, 300]` the headline AP prints −1; read AP from `E.eval['precision']` (mask −1) or keep 100 in the list.
 
-`faster-coco-eval` is a faster drop-in (`from faster_coco_eval import COCO, COCOeval_faster`); `torchmetrics`
-`MeanAveragePrecision(iou_type="bbox", class_metrics=True, backend="faster_coco_eval")` for in-training
-evaluation (boxes default to `xyxy`; COCO JSON is `xywh`: set `box_format`). Validate any custom evaluator against
-pycocotools on the same predictions.
+`faster-coco-eval` is a faster drop-in (`from faster_coco_eval import COCO, COCOeval_faster`; PyPI only, not on
+conda-forge); `torchmetrics` `MeanAveragePrecision(iou_type="bbox", class_metrics=True, backend="faster_coco_eval")`
+for in-training evaluation (`from torchmetrics.detection import MeanAveragePrecision` needs `torchvision`
+installed; boxes default to `xyxy`, COCO JSON is `xywh`: set `box_format`; `max_detection_thresholds` changes
+maxDets). Validate any custom evaluator against pycocotools on the same predictions.
+
+**Small test sets**: AP is not a mean over independent items, so get its CI by a **bootstrap over images**
+(resample image ids with replacement, re-run the evaluator on the resampled set; 1,000 resamples; duplicate ids need
+new unique ids) or, for comparing two models, a paired bootstrap on the same resampled images. With < ~50 instances
+of a class its per-class AP is very noisy; report counts next to it.
 
 ## 3. TIDE: which error to fix next (2008.08115; `pip`/pixi package `tidecv`)
 
@@ -100,9 +123,11 @@ where IoU_max is a detection's best IoU with any GT:
 | **Miss** | GT not detected and not covered by Cls/Loc | recall: small/occluded objects, proposals, input size |
 
 Each error's **ΔAP** is the AP gain from an oracle that fixes only that error, **each computed from the original
-AP, not progressively** (progressive fixing, as in COCO's `analyze`, over-weights whatever is fixed last). Two extra
-oracles split errors into **FP** (suppress all false positives) and **FN** (all missed GT); both directions sum to
-about 100 − AP. Fix the largest ΔAP first, and re-run TIDE after each change.
+AP, not progressively** (progressive fixing, as in COCO's `analyze`, over-weights whatever is fixed last). Applying
+all six oracles **together** gives 100 AP, but the individual ΔAPs do **not** add up to 100 − AP (interactions).
+Two extra oracles split errors into **FP** (suppress all false positives) and **FN** (set N_GT to the true
+positives); together they also reach 100 AP (e.g. Mask R-CNN in the paper: AP50 61.7, ΔAP_FP 16.6, ΔAP_FN 15.3).
+At stricter t_f, Loc and FN errors dominate (paper Tab. 3). Fix the largest ΔAP first; re-run TIDE after each change.
 
 ```python
 from tidecv import TIDE, datasets
@@ -112,7 +137,9 @@ tide.summarize(); tide.plot("tide_out/")
 ```
 
 `tidecv`'s COCO loader needs `file_name` on every image and `segmentation` on every annotation, even for boxes
-(use the box as a 4-point polygon). TIDE reports at AP50 by default; also look at the COCO AP75 vs AP50 gap for localization. Using TIDE to size the
+(use the box as a 4-point polygon). TIDE reports at AP50 by default (`TIDE(pos_threshold=0.5,
+background_threshold=0.1)`; `tide.evaluate_range(...)` runs 0.50:0.95); also look at the COCO AP75 vs AP50 gap for
+localization. Using TIDE to size the
 model: if Miss dominates on small objects, raise input resolution or stride-8 features before adding depth; if Cls
 dominates, a stronger backbone/classifier or more data for confusable classes; if Bkg dominates, check GT
 completeness before training harder.
@@ -121,15 +148,20 @@ completeness before training harder.
 
 - **Semantic**: per-class IoU and **mIoU** (from one confusion matrix accumulated over the whole set, not mean of
   per-image IoUs unless stated), pixel accuracy is misleading with imbalance. **Dice/F1** for medical (equals
-  2·IoU/(1+IoU) per item); report per-structure. Boundary quality: **Boundary IoU** (2103.16562), Hausdorff (HD95)
+  2·IoU/(1+IoU) for the same item, but mean Dice ≠ 2·mIoU/(1+mIoU) after averaging); report per-structure and say
+  how empty masks (both empty: 1, NaN or skipped?) are scored. Boundary quality: **Boundary IoU** (2103.16562), Hausdorff (HD95)
   and surface distances in mm for medical.
 - **Instance**: COCO `segm` AP (mask IoU). **Panoptic**: **PQ = SQ × RQ** (1801.00868), report PQ for things and stuff.
-- **Keypoints**: COCO OKS-based AP (per-keypoint σ; `iouType="keypoints"`); PCK/PCKh with the normalization stated.
+- **Keypoints**: COCO OKS-based AP (`iouType="keypoints"`): OKS = mean over labeled keypoints of
+  exp(−d²/(2·s²·k²)), s² = object area, k = 2σ per keypoint (COCO's 17 σ in `E.params.kpt_oks_sigmas`, 0.025 eyes …
+  0.107 hips; set your own for other skeletons). Different summary: **10 numbers, maxDets 20, area buckets medium
+  and large only** (no small). PCK/PCKh with the normalization stated.
 - **Tracking**: **HOTA** (2009.07736) balances detection and association (DetA, AssA); MOTA is dominated by
   detection; IDF1 for identity. Use TrackEval.
 - **3D / driving**: nuScenes **NDS** (1903.11027) combines mAP (center-distance matching) with true-positive errors
-  (translation, scale, orientation, velocity, attribute); KITTI AP uses its own difficulty levels and 40 recall
-  points.
+  (translation, scale, orientation, velocity, attribute); KITTI AP uses easy/moderate/hard difficulty levels,
+  class-specific IoU (0.7 car, 0.5 pedestrian/cyclist) and **40 recall points (AP|R40)** since 2019 (the old 11-point
+  AP|R11 included recall 0 and inflated scores; Simonelli et al. 1905.12365): state which.
 
 ## 5. Other targets
 
@@ -142,7 +174,7 @@ completeness before training harder.
 | Image generation | FID (1706.08500), KID (1801.01401), precision/recall for generative models; CLIPScore (2104.08718) for text alignment | FID depends on sample count, resize and feature extractor: fix and report them |
 | Image quality / restoration | PSNR, SSIM, LPIPS | PSNR/SSIM on Y channel vs RGB must be stated |
 | Text generation | chrF, BLEU (sacreBLEU signature), BERTScore (1904.09675), human/LLM judgment with agreement | reference-based metrics correlate weakly with quality for open-ended text |
-| Code | pass@k (unbiased estimator, 2107.03374) | k ≤ samples n; sandboxed tests |
+| Code | pass@k = E[1 − C(n−c, k)/C(n, k)] (unbiased, 2107.03374; n samples, c correct, k ≤ n) | not 1 − (1 − p̂)ᵏ (biased low); use the paper's stable product form; sandboxed tests |
 | Speech | WER/CER (normalization stated) | |
 | Medical / clinical | sensitivity/specificity at a clinically chosen point, PPV/NPV at the real prevalence, calibration | Metrics Reloaded decision tree; TRIPOD+AI (field-methods) |
 

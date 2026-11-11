@@ -25,15 +25,18 @@ approach to neural network hyper-parameters, Part 1* (1803.09820), *General Cycl
 - **1cycle** (for super-convergence): a single cycle that ends before training ends, then the LR decays **several
   orders of magnitude below the starting LR** for the remaining iterations. In PyTorch: `OneCycleLR(max_lr=…,
   total_steps=…, pct_start≈0.25–0.3, div_factor≈10–25, final_div_factor≈1e3–1e4, cycle_momentum=True,
-  base_momentum=0.85, max_momentum=0.95)` (for Adam it cycles `beta1`).
+  base_momentum=0.85, max_momentum=0.95)` (PyTorch defaults: 0.3, 25, 1e4, cosine annealing; for Adam it cycles
+  `beta1`, overwriting your betas[0]). Call `scheduler.step()` per **batch**, not per epoch.
 - **Cyclical momentum**: momentum **decreases while the LR increases** (e.g. 0.95 → 0.85) and rises again as the LR
   falls; with a constant LR use a large constant momentum (0.9–0.99). A momentum range test does not find an optimum;
   try 0.99, 0.97, 0.95, 0.9 in short runs.
 - **Batch size**: use a large batch that fits in GPU memory so a larger LR can be used; compare batch sizes at **equal
   wall-clock time**, not equal epochs (Remark 4). Smaller batches regularize more.
-- **Weight decay**: grid by bisecting the exponent (e.g. 3×10⁻⁵, 10⁻⁴, 3×10⁻⁴); one significant figure is enough.
-  Complex data/deep nets need less (10⁻⁴…0), shallow nets more (10⁻²…10⁻⁴). Search WD together with the LR range
-  test; restarting from a mid-training snapshot with different WD values saves time.
+- **Weight decay** (§4.4): constant through training (cyclical WD did not help); with no prior, test 10⁻³, 10⁻⁴, 10⁻⁵
+  and 0; with a prior (say 10⁻⁴) bisect the exponent (3×10⁻⁵, 10⁻⁴, 3×10⁻⁴); one significant figure is enough.
+  Smaller datasets/architectures need larger WD, larger datasets/deeper nets smaller ("complex data provides its own
+  regularization"). Search WD together with the LR range test (the best WD is smaller under a large cyclical LR);
+  validation loss early in training is enough to pick it.
 - **Balance regularization (Remark 3)**: large learning rates regularize, so when you use them **reduce other
   regularization** (weight decay, dropout, augmentation strength). In Smith's CIFAR experiments, weight decay 10⁻³
   prevented super-convergence that worked at smaller values.
@@ -54,12 +57,25 @@ approach to neural network hyper-parameters, Part 1* (1803.09820), *General Cycl
   benchmarks, worse in others: test it.
 - Compare runs only at the end of their schedules: curves cross during decay (2509.02046).
 - **Batch size vs LR**: with SGD the linear scaling rule (LR ∝ batch, with warmup) holds up to a critical batch size
-  (1706.02677); beyond it, more batch buys little (1811.03600, 1812.06162 gradient noise scale). Adam-family: scale
-  LR roughly with √batch as a starting point, then tune. Increasing batch size instead of decaying LR is equivalent
-  in SGD's noise scale (1711.00489).
+  (1706.02677); beyond it, more batch buys little (1811.03600, 1812.06162 gradient noise scale). Adam-family: the
+  SDE analysis gives a **square-root rule** (LR ∝ √batch, with β/ε adjusted too; Malladi et al. 2205.10287) — a
+  starting point only: for sign-like updates the optimal LR can rise then fall with batch size (2405.14578), so
+  re-sweep LR after a large batch change. Increasing batch size instead of decaying LR is equivalent in SGD's noise
+  scale (1711.00489).
+- **Gradient accumulation** reproduces the larger batch's gradient (so use the large batch's LR), provided the loss is
+  averaged over the **whole** effective batch (divide by accumulation steps; for token losses normalize by total
+  tokens, not per micro-batch), BatchNorm statistics still see only the micro-batch, and the scheduler/clipping/EMA
+  step once per optimizer step.
 - **µP** (Maximal Update Parametrization, 2203.03466): tune on a small width, transfer LR and init to the large model.
   Worth it when you train a family of sizes.
 - Gradient clipping (global norm 1.0) is standard for transformers; log the pre-clip norm.
+- **Loss spikes / divergence** (log loss, grad norm, update/weight ratio and max logit per layer): first lower the
+  peak LR or lengthen warmup, check data (a bad batch, duplicated shards, fp16 overflow → bf16), then the
+  architecture fixes used at scale: **QK-norm** (norm on queries/keys; ViT-22B 2302.05442), **z-loss** on the
+  output softmax normalizer (PaLM 2204.02311 uses 10⁻⁴·log²Z), **logit soft-capping** `c·tanh(x/c)` on attention
+  and final logits (Gemma 2, 2408.00118: c = 50 attention, 30 final). Wortsman et al. (2309.14322) reproduce these instabilities in small models
+  at high LR and show QK-norm and z-loss fix them there too — so test stability cheaply with an LR sweep on a small
+  model. Restarting from a checkpoint before the spike while skipping the offending batches is a common last resort.
 
 ## 3. Optimizers: what to use (evidence as of late 2026)
 
@@ -67,30 +83,37 @@ approach to neural network hyper-parameters, Part 1* (1803.09820), *General Cycl
 |---|---|---|
 | **AdamW** (1711.05101) | Default for transformers, most new work | Decoupled WD (not L2 in the gradient); typical β=(0.9, 0.95–0.999), WD 0.01–0.1; `fused=True` |
 | **SGD + Nesterov momentum** | CNNs on vision, with 1cycle/cosine | Often generalizes as well or better than Adam for CNNs; needs a good LR range test |
-| **Muon** (`torch.optim.Muon`, PyTorch ≥ 2.9; 2502.16982) | 2-D hidden weight matrices of transformers, MLPs, ConvNets (flattened) | Orthogonalizes the momentum update (Newton–Schulz). **Only hidden 2-D weights**: embeddings, output head, norms, biases (and usually the first conv) stay on AdamW. `adjust_lr_fn="match_rms_adamw"` lets it reuse AdamW-tuned LR and WD |
+| **Muon** (`torch.optim.Muon`, PyTorch ≥ 2.9; Moonshot scaling paper 2502.16982) | 2-D hidden weight matrices of transformers and MLPs | Orthogonalizes the momentum update (Newton–Schulz, 5 steps). `torch.optim.Muon` **raises on any non-2-D parameter**: conv kernels need a reshaping implementation (e.g. Keller Jordan's) or stay on AdamW; embeddings, output head, norms, biases always stay on AdamW. Defaults: lr 1e-3, WD 0.1, momentum 0.95, Nesterov. `adjust_lr_fn`: default `"original"` scales LR by √max(1, A/B) (needs its own, much larger LR sweep); `"match_rms_adamw"` scales by 0.2·√max(A, B) so AdamW-tuned LR and WD carry over (Moonshot; WD was essential at scale) |
 | **SOAP / Shampoo / Kron** (2409.11321) | Longer training (high data-to-model ratio) | Matrix preconditioners; more memory and compute per step |
-| **Lion** (2302.06675) | Memory-limited | Sign updates; needs ~3–10× smaller LR and larger WD than AdamW |
-| **LAMB / LARS** (1904.00962) | Very large batches | Layer-wise trust ratio |
+| **Lion** (2302.06675) | Memory-limited (one state) | Sign updates; the paper: LR 3–10× smaller and λ 3–10× larger than AdamW (keeps lr·λ similar) |
+| **LAMB / LARS** (1904.00962 / 1708.03888) | Very large batches (≥ 8k) | Layer-wise trust ratio; little benefit at ordinary batch sizes |
 
 What the careful benchmarks show:
 - With **equally tuned baselines**, gains over AdamW are modest: matrix-based optimizers (Muon, SOAP, Kron) give
-  ~1.3–1.4× fewer steps for ~0.1–0.5B-parameter LMs, shrinking to ~1.1× at 1.2B; Muon is best at 1–4× Chinchilla
-  data, SOAP/Kron at 8×+ (Wen et al., 2509.02046). Many claimed 2× speedups come from weak baselines.
+  at most ~1.4× (130M) and ~1.3× (300–520M) data-efficiency speedup, shrinking to ~1.1× at 1.2B; Muon is best at
+  1–4× Chinchilla data, SOAP/Kron at 8× (and SOAP at 16×) (Wen et al., 2509.02046). Many claimed 2× speedups
+  (including Moonshot's ~2× for Muon) were measured against less-tuned AdamW.
 - **Per step vs wall clock**: Muon's Newton–Schulz costs time; on one GPU with reference kernels it lost to AdamW in
   wall-clock for small LMs but won clearly for small ViTs (2610.21555). Measure time-to-target, not steps.
 - **Fine-tuning**: beyond a large pretraining data budget, AdamW-pretrained models fine-tune better than Muon-pretrained
   ones (2611.03633). Tabular MLPs: Muon was the most consistent improvement over AdamW; EMA also helped (2604.15297).
-  Diffusion: no single winner; AdamW tuned is a strong default (2609.23055).
+  Diffusion (mostly discrete diffusion, plus Gaussian on CelebA-64): tuned AdamW is a strong default but was beaten
+  on 2 of 4 formulations, and the winner changed with the formulation (2609.23055).
 - Each optimizer needs its own LR/WD sweep; never transfer AdamW's hyper-parameters to Lion or (without
   `match_rms_adamw`) to Muon.
 
 ```python
-hidden = [p for n, p in model.named_parameters() if p.ndim == 2 and "embed" not in n and "head" not in n]
-others = [p for n, p in model.named_parameters() if not (p.ndim == 2 and "embed" not in n and "head" not in n)]
+is_hidden = lambda n, p: p.ndim == 2 and "embed" not in n and "head" not in n   # adapt names to your model
+hidden = [p for n, p in model.named_parameters() if is_hidden(n, p)]
+decay  = [p for n, p in model.named_parameters() if not is_hidden(n, p) and p.ndim >= 2]  # embeddings, head, convs
+no_wd  = [p for n, p in model.named_parameters() if p.ndim < 2]                           # norms, biases, gains
 opt_muon = torch.optim.Muon(hidden, lr=adamw_lr, weight_decay=0.1, adjust_lr_fn="match_rms_adamw")
-opt_adam = torch.optim.AdamW(others, lr=adamw_lr, betas=(0.9, 0.95), weight_decay=0.1, fused=True)
-# step both every iteration; give each its own LR scheduler; save/load both states
+opt_adam = torch.optim.AdamW([{"params": decay, "weight_decay": 0.1}, {"params": no_wd, "weight_decay": 0.0}],
+                             lr=adamw_lr, betas=(0.9, 0.95), fused=True)
+# step both every iteration with the same warmup+decay schedule (one scheduler each); save/load both states
 ```
+Weight decay groups apply to any optimizer: no WD on 1-D parameters (norm gains, biases); for embeddings practice
+varies (often no WD in vision, WD in LLMs) — state the choice.
 
 ## 4. Normalization (in the model)
 
@@ -126,7 +149,8 @@ on validation loss at equal compute.
 - **SWA** (1803.05407): average checkpoints from the end of training with a constant or cyclical LR; recompute
   BatchNorm statistics afterwards (`torch.optim.swa_utils.update_bn`).
 - PyTorch: `torch.optim.swa_utils.AveragedModel(model, multi_avg_fn=get_ema_multi_avg_fn(0.999))`, call
-  `.update_parameters(model)` after each optimizer step; keep it in FP32; save it in checkpoints.
+  `.update_parameters(model)` after each optimizer step; keep it in FP32; save it in checkpoints. Pass
+  `use_buffers=True` to average BatchNorm buffers too (otherwise run `update_bn(loader, ema_model)` before eval).
 - EMA and schedule-free methods are related (both average iterates); EMA on top of a well-decayed schedule helps less.
 
 ## 7. Self-normalizing networks and implicit self-regularization

@@ -29,8 +29,8 @@ const dg = join(root, "examples", "diagrams")
 for (const name of readdirSync(dg).sort()) {
   const base = name.replace(/\.[^.]+$/, "")
   if (name.endsWith(".d2")) {
-    run(`d2 ${name}`, bin("d2"), [name, join(out, `${base}.svg`)], dg, join(out, `${base}.svg`))
-    run(`png ${base}`, bin("rsvg-convert"), ["-w", "1400", "-b", "white", join(out, `${base}.svg`), "-o", join(out, `${base}.png`)], dg, join(out, `${base}.png`))
+    // d2-png.sh: SVG with fonts rsvg-convert can use, then PNG (d2's own PNG export needs a browser download)
+    run(`d2 ${name}`, "bash", ["d2-png.sh", name, join(out, `${base}.png`), "1400"], dg, join(out, `${base}.png`))
   }
   if (name.endsWith(".dot")) run(`dot ${name}`, bin("dot"), ["-Tpng", "-Gdpi=150", name, "-o", join(out, `${base}.png`)], dg, join(out, `${base}.png`))
 }

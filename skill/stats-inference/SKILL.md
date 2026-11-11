@@ -1,119 +1,155 @@
 ---
 name: stats-inference
-description: Statistical analysis done the current way, for any field — choosing a test or model for the data and design (paired, nested, repeated, counts, proportions, survival, time series), effect sizes with confidence intervals first, p-values as continuous evidence, bootstrap and permutation tests, multiple-comparison control, mixed-effects and GLMs, equivalence testing, power and sample size, Bayesian alternatives, measurement uncertainty, and which textbook practices are outdated. Python only (scipy, statsmodels, pingouin, PyMC) through Pixi. Load before any statistical test, comparison, interval or claim of "significant".
+description: Statistical analysis done the current way, for any field — estimand and design first, choosing a test or model for the data (paired, nested/clustered, repeated, counts, proportions, ordinal, survival, time series), effect sizes with confidence intervals, p-values as continuous evidence, bootstrap and permutation tests, multiple-comparison control, mixed-effects models, GLMs and robust/cluster-robust errors, missing data, equivalence testing, power by simulation, meta-analysis, Bayesian models (PyMC, Bambi, ArviZ 1.x), measurement uncertainty, and which textbook practices are outdated. Python only (scipy, statsmodels, pingouin, PyMC) through Pixi. Load before any statistical test, comparison, interval or claim of "significant".
 ---
 
 # Statistical inference (current practice)
 
+Related: **experiment-design** (ML comparisons, seeds, splits), **ml-metrics**, **field-methods** (per discipline).
+
 ## Before computing anything
 
-1. **State the question as an estimand**: what quantity, in which population, compared to what (e.g. "mean
-   difference in top-1 accuracy between A and B over seeds, on this test distribution"). The estimand chooses the
-   method; the method never chooses the question.
-2. **Know the design**: what is the unit of analysis (patient, image, seed, dataset, site)? Which observations are
-   paired, repeated or nested? What was randomized? Pseudo-replication (treating repeated measures or windows of one
-   subject as independent) is the most common serious error; fix it before anything else.
-3. **Plot the data** (distribution per group, pairing lines, outliers) before testing. Look at it yourself (render a
-   PNG and read it).
-4. **Decide the analysis before seeing outcomes** when it matters (pre-registration, or at least write the plan into
-   the project before running). Record deviations.
-5. Use the **library**: `library_search` the method (e.g. "Welch t-test unequal variances", "mixed model random slopes",
-   "Benjamini-Hochberg") and cite what you rely on. Check a source's status: some textbooks are flagged `dated`.
+1. **State the estimand**: what quantity, in which population, compared to what (e.g. "mean difference in top-1
+   accuracy between A and B over seeds, on this test distribution"). The estimand chooses the method, not vice versa.
+2. **Know the design**: unit of analysis (patient, image, seed, dataset, site); what is paired, repeated, nested or
+   crossed; what was randomized, at which level. n = independent units at the level of the comparison.
+   Pseudo-replication (repeated measures, windows, questions of one unit treated as independent) is the most common
+   serious error: fix it first.
+3. **Plot the data** (per-group distributions, pairing lines, outliers, missingness); render a PNG and look at it.
+4. **Fix the analysis before seeing outcomes** when it matters (pre-registration or a dated plan: estimand, outcome,
+   model, covariates, exclusions, SESOI, multiplicity). Record deviations.
+5. **Library**: `library_search` the method and cite it. Key sources: `asa-pvalue-2016`, `asa-beyond-005-pdf`,
+   `greenland-2016-misinterpretations`, `ros`, `bda3`, `what-if`, `riley-2020-pdf`. `biostat-handbook` is `dated`.
 
 ## Report effect sizes with intervals, not verdicts
 
-- Always report the estimate, its uncertainty (95% CI or credible interval) and the units; p-values are secondary.
-- Effect sizes: raw difference in natural units first (ms, accuracy points, mmHg); standardized ones (Cohen's d /
-  Hedges' g, odds/risk ratio, risk difference, r, η², Cliff's δ / rank-biserial) when units don't compare.
-- **p-values are continuous evidence**, not pass/fail (ASA 2016 and 2019 statements). Don't write "significant"/"not
-  significant" as conclusions; don't treat p > 0.05 as "no effect" (use an equivalence test or the CI to say what
-  sizes are ruled out). Report exact p-values (p = 0.031, p < 0.001).
-- Distinguish statistical from practical importance: decide the smallest effect that matters (SESOI) in advance.
+- Always: estimate, 95% CI (or credible interval), units, n (units and clusters). The p-value is secondary.
+- Raw effect in natural units first; standardized (Hedges' g — say which SD, OR/RR, r, partial η², Cliff's δ,
+  probability of superiority) when units don't compare. Binary outcomes: absolute *and* relative (RD and RR).
+- **p-values are continuous evidence**: ASA statement 2016 (six principles); the 2019 TAS editorial (Wasserstein,
+  Schirm & Lazar; an editorial, not ASA policy) urges dropping "statistically significant"; the ASA President's Task
+  Force (2021, Ann. Appl. Stat. 15:1084) adds that properly used tests remain valid and thresholds must be justified
+  by error consequences. So: exact p (p = 0.031; p < 0.001), no "trending", never p > 0.05 ⇒ "no effect"; say which
+  effect sizes the CI rules out.
+- Decide the smallest effect size of interest (SESOI) in advance; separate statistical from practical importance.
+- CI (for a parameter) ≠ prediction interval (for a new observation). SD = spread, SE = precision: label every "±".
 
-## Choosing the method
+## Choosing the method (verified against scipy 1.18, statsmodels 0.15, pingouin 0.7)
 
 | Data / design | Default now | Notes |
 |---|---|---|
-| Two independent groups, numeric | **Welch's t-test** (`scipy.stats.ttest_ind(equal_var=False)`) + CI of the difference; or bootstrap CI | Don't pre-test normality/variance to choose; Welch is the default. Heavy tails/outliers: bootstrap, permutation, or Hodges–Lehmann with Mann–Whitney. |
-| Two paired measurements | Paired t-test on differences, or bootstrap/permutation of differences; Wilcoxon signed-rank for ordinal-ish data | Pairing (same seeds, same subjects, same datasets) is usually much more powerful; use it. |
-| > 2 groups, numeric | Welch's ANOVA (`pingouin.welch_anova`) or a linear model; post-hoc Games–Howell; better: estimate the contrasts you care about with CIs | Prefer planned contrasts over all-pairs testing. |
-| Repeated / nested / clustered (subjects, sites, seeds within configs) | **Mixed-effects model** (`statsmodels.formula.api.mixedlm`, or Bayesian with Bambi/PyMC); or cluster-robust SEs; or aggregate to the unit | Random intercepts at minimum; random slopes for within-unit effects when data allow. |
-| Proportions / 2×2 | Risk difference and risk ratio with CIs (Newcombe/Wilson; `statsmodels.stats.proportion`); Fisher exact for small counts; logistic regression with covariates | Chi-square/G for larger tables; report the table. |
-| Counts | Poisson or negative-binomial GLM (check overdispersion); offsets for exposure | |
-| Binary outcome with predictors | Logistic regression; report odds ratios *and* predicted probabilities/marginal effects | |
-| Ordinal (Likert) | Ordinal (proportional-odds) regression (`statsmodels OrderedModel`) | Don't average Likert items as if interval without saying so. |
-| Time to event | Kaplan–Meier, Cox model (`lifelines`), check proportional hazards; competing risks if present | |
-| Correlation | Pearson with CI (Fisher z) or Spearman; show the scatter plot; correlation is not agreement — use Bland–Altman for method comparison | |
-| Agreement / reliability | ICC (choose the right form), Cohen's/Fleiss' κ or Krippendorff's α for raters | |
-| Time series | Account for autocorrelation (block bootstrap, HAC/Newey–West SEs, ARIMA/state-space); never treat consecutive points as independent | |
-| Many features / prediction | Regularized regression, cross-validation (see experiment-design); report out-of-sample performance | |
-| Causal question from observational data | DAG first, then adjustment set; regression/matching/IP weighting; DiD, RD, IV designs; sensitivity analysis (E-value) | "Adjusting for everything" can introduce bias (colliders, mediators). |
+| Two independent groups, numeric | **Welch t** `scipy.stats.ttest_ind(a, b, equal_var=False)`; `.confidence_interval()` = CI of the difference | No normality/variance pre-tests. Heavy tails: bootstrap CI, Yuen trimmed t (`trim=0.2`), permutation (`method=scipy.stats.PermutationMethod()`), Brunner–Munzel (`brunnermunzel`). Mann–Whitney tests stochastic superiority, not medians: report P(X>Y) with CI (`statsmodels.stats.nonparametric.rank_compare_2indep`). |
+| Two paired measurements | Paired t / CI of differences (`ttest_rel`), `bootstrap(..., paired=True)`, `permutation_test(..., permutation_type="samples")` | Pair whenever possible (same seeds, subjects, examples). Wilcoxon signed-rank assumes symmetric interval-scale differences; ordinal pairs: sign test (`binomtest`). |
+| > 2 groups, numeric | Linear model + the contrasts you care about with CIs; Welch ANOVA (`pingouin.welch_anova`, `statsmodels.stats.oneway.anova_oneway`) | All pairs: Games–Howell (`pingouin.pairwise_gameshowell`); vs control: `scipy.stats.dunnett`; equal variances: `tukey_hsd`. |
+| Repeated / nested / clustered | **Mixed model** `smf.mixedlm("y ~ x", d, groups="subject", re_formula="~x")`; GEE (`smf.gee`, population-averaged); cluster-robust SEs `.fit(cov_type="cluster", cov_kwds={"groups": g})`; or aggregate to the unit | Random intercepts at minimum, random slopes for within-unit predictors when estimable. MixedLM gives Wald z only and handles crossed effects poorly: crossed (subjects × items), non-Gaussian GLMMs, few groups → Bambi/PyMC. Few clusters (< ~30–50): wild cluster bootstrap (`pyfixest`, `wildboottest`). |
+| Pre/post with baseline | **ANCOVA** `post ~ treatment + baseline` | More efficient than change scores; no baseline significance tests in RCTs. |
+| Proportions / 2×2 | RD, RR, OR with CIs: `statsmodels.stats.proportion.confint_proportions_2indep(..., compare="diff"/"ratio"/"odds-ratio")` (Newcombe / log-adjusted defaults); one proportion: `proportion_confint(method="wilson")` | Small counts: `fisher_exact` or the more powerful `barnard_exact` / `boschloo_exact`. Paired: McNemar (`statsmodels.stats.contingency_tables.mcnemar`). Report the table. |
+| Counts / rates | Poisson GLM with `offset=np.log(exposure)`; overdispersion (Pearson χ²/df) → `smf.negativebinomial` (estimates α); zero-inflated/hurdle for structural zeros | GLM `sm.families.NegativeBinomial()` *fixes* α = 1 unless set. Two rates: `statsmodels.stats.rates.confint_poisson_2indep`. |
+| Binary outcome with predictors | Logistic regression; ORs *and* predicted probabilities / average marginal effects (`res.get_margeff()`, `marginaleffects`) | ORs are non-collapsible (adjusted ≠ unadjusted without confounding). Separation: Firth (`firthmodels`) or weakly-informative Bayesian priors. |
+| Ordinal (Likert) | Proportional odds: `statsmodels.miscmodels.ordinal_model.OrderedModel`, Bambi `family="cumulative"` | Check proportional odds; say so if you average items. |
+| Bounded (0–1) continuous | Beta regression (`statsmodels.othermod.betareg.BetaModel`) or fractional logit (binomial GLM + robust SE) | |
+| Time to event | Kaplan–Meier, Cox (`lifelines.CoxPHFitter`, `.check_assumptions`); non-proportional hazards → RMST (`lifelines.utils.restricted_mean_survival_time`); competing risks → `AalenJohansenFitter`, not 1−KM | Non-informative censoring; numbers at risk; HRs are hard to read causally. |
+| Correlation / agreement | Pearson CI `pearsonr(x, y).confidence_interval()`; Spearman + bootstrap CI; repeated measures `pingouin.rm_corr` | Correlation ≠ agreement: Bland–Altman (`statsmodels.graphics.agreement.mean_diff_plot`) with LoA CIs. |
+| Rater reliability | ICC `pingouin.intraclass_corr` (name the form, e.g. ICC(2,1) absolute agreement); `statsmodels.stats.inter_rater.cohens_kappa` / `fleiss_kappa`; Krippendorff's α (`krippendorff`) | CIs; κ depends on prevalence. |
+| Time series | ARIMA/state-space (`statsmodels.tsa`), HAC SEs (`cov_type="HAC"`), block bootstrap; residual check `acorr_ljungbox` | Consecutive points are not independent; beware spurious regression of trends. |
+| Heteroscedasticity, tails | Robust SEs `cov_type="HC3"`; WLS with known variances; `smf.quantreg` | |
+| Prediction, many predictors | Regularization + CV (experiment-design); out-of-sample performance and calibration | Inference after selection is invalid unless on held-out data. |
+| Combining studies | Random effects `statsmodels.stats.meta_analysis.combine_effects(eff, var, method_re="iterated")`; HKSJ CIs (`sd_eff_w_re_hksj`) with few studies | Report τ², prediction interval; I² is not absolute heterogeneity. |
+| Causal, observational | DAG → adjustment set; regression, matching, IP weighting, g-formula, doubly robust (DoWhy, DoubleML, EconML); DiD/RD/IV (field-methods); E-value (VanderWeele & Ding 2017) | Adjusting for colliders/mediators adds bias; don't read covariate coefficients causally (Table 2 fallacy). |
 
-**Resampling is a general tool**: `scipy.stats.bootstrap` (BCa intervals) for any statistic; `scipy.stats.permutation_test`
-for exact-ish tests under exchangeability; resample at the level of the independent unit (cluster bootstrap).
+**Resampling**: `scipy.stats.bootstrap((x,), stat, method="BCa", rng=seed)` for any statistic (with n < ~20 every
+bootstrap undercovers: say so); `scipy.stats.permutation_test` with `permutation_type="independent"`, `"samples"`
+(paired) or `"pairings"` (correlation). Resample the independent unit (cluster bootstrap over subjects/passages/sites).
+
+## Missing data
+
+Report missingness per variable and group. Complete-case analysis is unbiased only under restrictive conditions;
+otherwise multiple imputation (`statsmodels.imputation.mice.MICE`; include the outcome in the imputation model; number
+of imputations ≳ % incomplete cases; Rubin's rules) or a likelihood/Bayesian model (mixed models use all observations
+under MAR). Add a missing-not-at-random sensitivity analysis (e.g. δ-adjustment). No LOCF or mean imputation.
 
 ## Multiple comparisons
 
-- Many tests → control error: Holm (FWER) when any false positive is costly; Benjamini–Hochberg (FDR) for screening
-  many hypotheses (`statsmodels.stats.multitest.multipletests`). Bonferroni is valid but needlessly conservative vs Holm.
-- Count *all* comparisons you looked at (forking paths), not only the ones you report. Better: fewer, pre-planned
-  comparisons, or a single model with all conditions (hierarchical/partial pooling).
+- Confirmatory, any false positive costly (FWER): Holm (`statsmodels.stats.multitest.multipletests(p, method="holm")`);
+  Bonferroni is valid but never more powerful than Holm. Structured: Dunnett, Tukey, gatekeeping of a pre-ordered list.
+- Screening (FDR): Benjamini–Hochberg `scipy.stats.false_discovery_control(p)` (adjusted p; `method="by"` under
+  arbitrary dependence) or `multipletests(method="fdr_bh")`.
+- Count *all* comparisons looked at (forking paths). Prefer few planned contrasts or one hierarchical model. Label
+  exploratory results as such, with the number of tests.
 
 ## Power, sample size, precision
 
-- Plan sample size for the precision you need (CI width) or for power at the SESOI, before collecting
-  (`statsmodels.stats.power`, simulation for complex designs — simulation is usually the honest choice).
-- Never compute "observed power" after the fact. With small samples, expect exaggerated significant effects (Type M
-  error) and possibly wrong signs (Type S).
-- Prediction models: minimum sample size criteria (Riley et al. 2020, `pmsampsize`-style calculation).
+- Plan n before collecting, for a CI half-width or for power at the SESOI. Closed form: `statsmodels.stats.power`
+  (`TTestIndPower().solve_power`, `FTestAnovaPower`), `statsmodels.stats.proportion.power_proportions_2indep`,
+  `pingouin.power_ttest`. Clustered, repeated, Bayesian or unusual designs: **simulate** the planned analysis on fake
+  data (`scipy.stats.power` for scipy tests); this also tests the code. Cluster designs: design effect 1 + (m − 1)·ICC.
+- No "observed"/post-hoc power. Underpowered "significant" results exaggerate effects (Type M) and may flip sign (Type S).
+- Prediction models: minimum sample size criteria (Riley et al. 2020, BMJ; `pmsampsize`).
 
-## Equivalence and "no difference"
+## Equivalence, non-inferiority and "no difference"
 
-To claim two methods are equivalent, test against bounds: TOST (`statsmodels.stats.weightstats.ttost_ind` /
-`ttost_paired`) with a pre-specified margin, or show the CI lies within ±SESOI. Bayesian: posterior mass inside a
-region of practical equivalence (ROPE).
+Pre-specify the margin (SESOI). TOST: `statsmodels.stats.weightstats.ttost_ind(x1, x2, low, upp, usevar="unequal")`
+(the default `usevar="pooled"` is Student, not Welch), `ttost_paired`, `tost_proportions_2indep`; `pingouin.tost` uses
+Student (`correction=False`) by default. Equivalent formulation: the 90% CI lies inside (−margin, +margin).
+Non-inferiority: one-sided, the CI lower bound above −margin. Bayesian: posterior mass inside a region of practical
+equivalence (ROPE, `arviz.ci_in_rope`).
 
 ## Bayesian when it fits
 
-Use it for hierarchical data, small samples with prior knowledge, decisions with costs, or direct probability
-statements ("P(A better than B) = 0.93"). PyMC or Bambi (formula interface) + ArviZ. Always: prior predictive check,
-convergence (R̂ ≈ 1.00, ESS, no divergences), posterior predictive check, sensitivity to the prior. Report posterior
-medians with credible intervals. Bayes factors only with well-justified priors.
+For hierarchical data, small samples with real prior knowledge, decisions with costs, or direct probability statements
+("P(A better than B) = 0.93"). PyMC, or Bambi for formulas/GLMMs/crossed effects
+(`bmb.Model("y ~ x + (1|subject) + (1|item)", d)`); nutpie sampler for speed.
+
+Workflow: weakly-informative priors on the data scale → prior predictive check (`pm.sample_prior_predictive`) → fit →
+**R̂ < 1.01, bulk and tail ESS > 400, no divergences** (Vehtari et al. 2021; `az.summary`, `az.plot_rank`) → posterior
+predictive check → prior sensitivity (`az.psense_summary`) → PSIS-LOO comparison (`pm.compute_log_likelihood`,
+`az.loo`, `az.compare`; Pareto k̂ < 0.7). Report posterior summaries with credible intervals (state the level). Bayes
+factors are prior-sensitive: only with justified priors (`pingouin.bayesfactor_ttest` uses JZS r = 0.707).
+
+**ArviZ 1.x renamed the API** (old tutorials and model memory use 0.x): `plot_ppc_dist` (was `plot_ppc`), `plot_dist`
+(was `plot_posterior`), `plot_trace_dist`, `plot_ppc_pit`; no WAIC (use LOO); data are xarray DataTrees. Check
+`help()` before writing plotting code.
 
 ## Measurement uncertainty (physical measurements)
 
-Follow the GUM (JCGM 100): list uncertainty sources, Type A (statistical) and Type B (other knowledge), propagate
-(analytically or Monte Carlo, JCGM 101), report combined standard uncertainty and expanded uncertainty with coverage
-factor; significant digits follow the uncertainty.
+GUM (JCGM 100:2008, plus **Amendment 1:2026 on nonlinear models**, `jcgm-100-amd1-2026`): list sources, Type A
+(statistical) and Type B (other knowledge), propagate (linearization; Monte Carlo per JCGM 101 when nonlinear or
+asymmetric), report u_c and U = k·u_c with k and coverage; 1–2 significant digits on the uncertainty, value to match.
+Python: `uncertainties` (linear propagation with correlations), NumPy Monte Carlo.
 
 ## Outdated practices — do not use
 
-- Testing normality (Shapiro–Wilk) or equal variances (Levene) to *choose* between tests (two-stage procedures distort
-  error rates). Use Welch/robust/resampling methods by default; inspect residual plots for model checking.
-- Student's equal-variance t-test as the default; Fisher's LSD; running all pairwise t-tests without adjustment.
-- A fixed p < 0.05 bright line, "trending towards significance", stars as the main result, "marginally significant".
-- Interpreting a non-significant result as evidence of no effect.
-- Stepwise variable selection (forward/backward by p-values) for inference; univariable screening before multivariable
-  models; dichotomizing continuous variables (median splits).
-- Post-hoc ("observed") power. Treating repeated measures as independent. Reporting SD vs SE ambiguously ("±" without
-  saying which).
-- Comparing correlations or "significant in A but not in B" as evidence of a difference: test the interaction/difference.
-- Spreadsheets or SAS-only workflows: use scripted, versioned Python analyses (Pixi script or project).
+- Normality (Shapiro–Wilk) or variance (Levene) pre-tests to *choose* a test (distorts error rates); checking the raw
+  outcome's normality instead of model residuals.
+- Student's t as default; Fisher's LSD beyond three groups; unadjusted all-pairs t-tests.
+- A p < 0.05 bright line, "trending"/"marginally significant", stars as the result; non-significant ⇒ "no effect";
+  "significant in A, not in B" ⇒ "A ≠ B" (test the difference).
+- Stepwise selection by p-values; univariable screening; dichotomizing continuous variables; change scores instead of
+  ANCOVA; baseline significance tests in RCTs.
+- Post-hoc power; one-sided tests chosen after the fact; pseudo-replication; ignoring clustering; LOCF/mean imputation;
+  mean ± SD for very skewed data.
+- `scipy.odr` (deprecated in SciPy 1.17, removed in 1.19): use `odrpack`. Spreadsheet/point-and-click analyses.
 
 ## How to run it (Python through Pixi)
 
 ```sh
-pixi init --script analysis.py && pixi add --script analysis.py scipy statsmodels pandas pingouin   # + pymc bambi arviz lifelines as needed
+pixi init --script analysis.py
+pixi add --script analysis.py scipy statsmodels pandas pingouin matplotlib   # + lifelines pymc bambi arviz as needed
 pixi run --script analysis.py
+# quick one-off check of an API:
+pixi exec --spec python=3.12 --spec scipy --spec statsmodels python -c "import scipy.stats as s; help(s.bootstrap)"
 ```
 
-Write analysis code as a script that reads the raw data, does every step (cleaning, exclusions with counts, models),
-prints a results table and saves figures. Set seeds for resampling. Log analyses that belong to ML experiments to
-MLflow (params, metrics, the script as an artifact).
+PyPI-only packages (`pmsampsize`, `marginaleffects`, `krippendorff`, `wildboottest`, `firthmodels`):
+`pixi add --script analysis.py --pypi <pkg>`. Never use R or rpy2-based wrappers (e.g. pymer4).
+
+One script from raw data to results (exclusions with counts, models, checks, a table of estimates with CIs, figures,
+package versions); seeds for resampling and MCMC; check unfamiliar APIs with `help()` rather than memory; log ML
+experiments to MLflow (ml-training).
 
 ## Reporting checklist
 
-Design and unit of analysis; n per group (and exclusions with reasons); the exact model/test and software versions;
-estimates with CIs in natural units; standardized effects where useful; exact p-values if reported; all comparisons
-made and the correction; assumptions checked and how; deviations from plan; data/code availability. Use the field's
-reporting guideline when one exists (EQUATOR: CONSORT, STROBE, TRIPOD+AI, PRISMA; APA JARS in psychology).
+Design, estimand, unit of analysis; n per group (units and clusters, exclusions with reasons); missing data and
+handling; exact model/test, software versions; estimates with CIs in natural units; exact p if reported; all
+comparisons and the multiplicity method; diagnostics; deviations from plan; sensitivity analyses; data/code. Plus the
+field's guideline (field-methods: CONSORT 2025, STROBE, TRIPOD+AI, PRISMA 2020, APA JARS, REFORMS).

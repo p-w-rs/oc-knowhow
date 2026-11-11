@@ -1,86 +1,121 @@
 ---
 name: datasets
-description: Build, curate, organize and document datasets — scoping and sampling, collection and consent, labeling guidelines and inter-annotator agreement, cleaning, deduplication and near-duplicate detection, leakage-safe splits, distribution shift and bias audits, data documentation (datasheets, data cards, Croissant, data statements), versioning and storage layout, licenses, and publishing (Hugging Face). Load before creating, cleaning, splitting, labeling or publishing data.
+description: Build, curate, organize and document datasets — scoping and sampling, collection, consent, privacy and licenses, labeling guidelines and inter-annotator agreement (κ, Krippendorff's α, ICC), label-error detection (cleanlab), cleaning and validation, deduplication and near-duplicate detection (hashes, MinHash LSH, embeddings), leakage-safe splits, distribution shift and bias audits, documentation (datasheets, data cards, data statements, Croissant 1.1 with RAI), versioning and storage layout, and publishing on Hugging Face. Load before creating, cleaning, splitting, labeling or publishing data.
 ---
 
 # Datasets: making, curating and using them
 
+Related: experiment-design (splits, leakage, evaluation), ml-data (formats and loaders for training speed),
+stats-inference (agreement statistics, CIs), huggingface (Hub mechanics). Python via Pixi only.
+
 ## 1. Scope
 
-- Write down the task, the target population/distribution the model will face, and what a sample unit is (image,
-  sentence, patient visit, sensor window). Mismatch between collected data and deployment conditions is the most common
-  silent failure.
-- Decide what metadata every sample needs (source, time, location/site, device/sensor, collector, license, consent,
-  subject/group id for grouped splits).
+- Write down the task, deployment population/conditions, the **sample unit** (image, sentence, visit, sensor window)
+  and the **independent unit** (patient, user, scene, site). Collected ≠ deployed distribution is the most common
+  silent failure. Fix per-sample metadata up front: id, source, time, site/device, annotator, license, consent, group id.
 
-## 2. Collection and sampling
+## 2. Collection, consent, licenses
 
-- Prefer a documented sampling procedure (stratified by known factors: site, device, demographic, condition) over
-  convenience sampling; record what was excluded and why.
-- Legal and ethical: licenses and terms of use per source, consent and privacy (PII/PHI removal, de-identification),
-  institutional approval where required. Keep provenance per sample.
+- Documented sampling (stratified by site, device, demographic, condition) over convenience sampling; log exclusions
+  with reasons and counts.
+- Per source: license/terms of use (SPDX id), provenance, retrieval date. Web data: honor robots/opt-outs and terms;
+  mixed licenses → the most restrictive governs redistribution. Don't redistribute what you may only use.
+- Personal data: legal basis/consent, IRB/ethics approval where required, PII/PHI removal (de-identify faces, names,
+  ids, EXIF/GPS, free text), data minimization; record it for the card.
 
 ## 3. Labeling
 
-- Write labeling guidelines with definitions, edge cases and examples; pilot on a small set, measure agreement, revise.
-- Multiple annotators on a subset; report agreement (Cohen's κ for 2, Fleiss' κ or Krippendorff's α for more, ICC for
-  continuous); adjudicate disagreements; keep raw labels, not only the final ones.
-- Track annotator id and time; check for drift and fatigue. For noisy labels, estimate noise (confident learning,
-  disagreement) and consider soft labels.
+- Guidelines with definitions, decision rules, edge cases and positive/negative examples; pilot on ~50–200 items,
+  measure agreement, revise, repeat. Version the guidelines; record which version each label used.
+- Double-annotate a random subset (≥ 10–20%, more for hard tasks). Agreement (stats-inference skill):
+  - 2 raters nominal: Cohen's κ (`sklearn.metrics.cohen_kappa_score`; `weights="quadratic"` for ordinal).
+  - Fixed set of ≥ 3 raters: Fleiss' κ (`statsmodels.stats.inter_rater.aggregate_raters` → `fleiss_kappa`).
+  - Missing ratings, any number of raters, any scale: Krippendorff's α (`krippendorff.alpha(reliability_data=raters×items,
+    level_of_measurement="nominal"|"ordinal"|"interval"|"ratio")` — PyPI package; default is **interval**, set it).
+  - Continuous: ICC (`pingouin.intraclass_corr`; choose the form, e.g. ICC2/ICC2k); Bland–Altman for bias.
+  - Report with a bootstrap CI over items; κ depends on prevalence, so also give raw % agreement and per-class
+    confusion between annotators.
+- Adjudicate; keep **all raw labels** + annotator id + timestamp. Track drift/fatigue with gold questions.
+- Label errors: `cleanlab.filter.find_label_issues(labels, pred_probs)` with **out-of-sample** `pred_probs`
+  (`cross_val_predict`); multiple annotators → `cleanlab.multiannotator.get_label_quality_multiannotator` (CROWDLAB);
+  `cleanlab.Datalab` (needs `datasets`) also flags outliers, near-duplicates, non-IID. Review flagged items by hand;
+  never auto-drop test labels. Ambiguous items: keep soft labels/disagreement as signal.
 
-## 4. Cleaning and curation
+## 4. Cleaning and validation
 
-- Validate schema and ranges; handle missing values explicitly (record why they are missing).
-- **Deduplicate**: exact hashes, then near-duplicates (perceptual hashes for images, MinHash/embeddings for text,
-  signal similarity for sensors). Deduplicate *before* splitting and also across splits.
-- Remove or flag corrupted files, label errors, outliers (document the rule; never silently drop).
-- Balance and coverage: count per class and per metadata stratum; look for rare but important strata.
+- Schema/range checks as code (`pandera` or Great Expectations), run on every rebuild. Missing values explicit, with
+  reason; never silent fills. Decode every media file once to catch corruption. Flag outliers/errors in a column
+  naming the rule; drop only by a logged, counted rule. Count per class × stratum to find rare-but-important strata.
 
-## 5. Splits
+## 5. Deduplication (before splitting; then again across splits)
 
-- Split by the independent unit (patient, user, scene, recording session, site, time period) — never by rows when rows
-  are correlated. Time-ordered tasks: train on the past, test on the future.
-- Freeze splits in files (lists of ids) committed or versioned with the data; never re-split ad hoc.
-- Hold out a test set touched once; consider an out-of-distribution test set (new site/device/time) to measure robustness.
-- Check for leakage: duplicates across splits, shared subjects, features derived from the label or the future.
+- Exact: sha256 of normalized content (bytes for media; normalized text: Unicode NFC, whitespace, case as appropriate).
+- Near-duplicate text: MinHash + LSH over word/char n-gram shingles (`datasketch.MinHash(num_perm=128)`,
+  `MinHashLSH(threshold=0.8, num_perm=128)`); Lee et al. 2022 (ACL, "Deduplicating Training Data Makes LMs Better")
+  found train–test overlap and showed dedup lowers memorization.
+- Images: perceptual hashes (`imagehash.phash`, `imagededup`); semantic duplicates: embedding cosine similarity
+  (CLIP/DINOv2/sentence embeddings + FAISS), e.g. SemDeDup (Abbas et al. 2023). Sensors: windowed signal similarity.
+- Set thresholds by inspecting pairs near them; store a duplicate-cluster id so splits can group by it. For eval
+  sets, also check overlap with public pretraining corpora/benchmarks (contamination).
 
-## 6. Audits
+## 6. Splits
 
-- Distribution shift between splits and vs deployment data (per-feature statistics, domain classifier test).
-- Performance by subgroup/stratum (fairness and robustness slices), with CIs.
-- Sanity baselines (majority class, simple models) to detect trivially solvable or broken data.
+- Split by the independent unit (and by duplicate cluster), never by rows when rows are correlated: `GroupShuffleSplit`,
+  `StratifiedGroupKFold`; time-ordered tasks: train on past, test on future, with a gap ≥ label horizon.
+- Freeze splits as id lists (`splits/*.txt` or a `split` column) versioned with the data; never re-split ad hoc.
+- One test set touched once; add OOD tests (new site/device/period) when deployment will shift.
+- Verify after splitting: zero shared groups/duplicate clusters across splits; label and stratum distributions per split.
 
-## 7. Documentation
+## 7. Audits
 
-Every dataset gets a card (README) answering the Datasheets for Datasets questions: motivation, composition, collection,
-preprocessing/cleaning/labeling, uses (and uses to avoid), distribution, maintenance. Use the Data Cards structure for
-audiences; Croissant JSON-LD for machine-readable metadata (Hugging Face and others read it); data statements for language
-data. Include counts per split and stratum, known issues, and the license.
+- Shift between splits and vs deployment: per-feature statistics (KS / PSI / χ²), a domain classifier (AUC ≫ 0.5 means
+  separable splits), embedding-space checks for media.
+- Performance by subgroup/stratum with CIs (fairness and robustness slices; ml-metrics).
+- Sanity baselines (majority class, metadata-only model, linear model): if metadata alone predicts the label, you
+  have a shortcut or leak.
 
-## 8. Organization and versioning
+## 8. Documentation
+
+- Every dataset gets a card (`README.md`): answer the Datasheets for Datasets questions (Gebru et al.; motivation,
+  composition, collection process, preprocessing/cleaning/labeling, uses, distribution, maintenance); use the Data
+  Cards structure (Pushkarna et al. 2022) for audience-oriented summaries; Data Statements (Bender & Friedman 2018) for
+  language data (speakers, varieties, annotators). Include counts per split × stratum, agreement stats, known issues,
+  license, citation, contact, version history.
+- Machine-readable: **Croissant** (MLCommons). Current spec 1.1 (Jan 2026; adds PROV-O provenance, DUO/ODRL usage
+  policies, external vocabularies); **Croissant RAI 1.0** adds `rai:` fields (`dataCollection`, `dataAnnotationProtocol`,
+  `dataBiases`, `dataLimitations`, `dataUseCases`, `personalSensitiveInformation`, …). Hugging Face auto-serves core
+  Croissant at `https://huggingface.co/api/datasets/<id>/croissant` (Croissant 1.0, no RAI as of Nov 2026); add RAI
+  yourself. NeurIPS 2026 Evaluations & Datasets track requires a validated Croissant file with core + minimal RAI.
+- Validate and load: `mlcroissant validate --jsonld metadata.json`; `mlcroissant.Dataset(jsonld=…).records(record_set=…)`
+  (`pixi exec --spec python=3.12 --spec mlcroissant …`). `library_search` the datasheet/data-card questions.
+
+## 9. Organization and versioning
 
 ```
 data/
-  raw/            # immutable, as received (read-only); provenance.json per source
-  interim/        # intermediate, reproducible from raw by scripts
-  processed/      # final model inputs (e.g. Parquet/Arrow, WebDataset shards)
-  splits/         # train.txt / val.txt / test.txt (ids), frozen
-  README.md       # the data card
-scripts/          # every transformation, run through Pixi tasks
+  raw/          # immutable, as received (read-only); provenance.json per source (url, license, date, sha256)
+  interim/      # reproducible from raw by scripts
+  processed/    # model inputs (Parquet; WebDataset/MDS shards for media — see ml-data)
+  splits/       # frozen id lists
+  README.md     # the card; croissant.json
+scripts/        # every transformation, run as Pixi tasks (`pixi run prepare`)
 ```
-- Raw data is never edited; every step is a script (`pixi run prepare`), deterministic, with seeds.
-- Version data with content hashes: Hugging Face dataset repos (pin the revision sha), DVC, or object storage with
-  manifests (sha256 per file). Record the data version in every MLflow run.
-- Formats: Parquet for tables, Arrow/`datasets` for mixed, WebDataset/TFRecord-like shards for large media; keep
-  metadata in a table keyed by sample id.
+- Raw is never edited; every step is a deterministic, seeded script; a manifest (path, sha256, size) per release.
+- Version with content hashes: HF dataset repo (pin `revision=<commit sha>` in `load_dataset`; tag releases with
+  `hf repos tag create <id> v1.0 --repo-type dataset`), DVC, or object storage + manifests; bump the major version when
+  splits/labels change. Log the data version in every MLflow run (`mlflow.log_input`). Keep labels in a table keyed
+  by sample id, separate from media.
 
-## 9. Publishing
+## 10. Publishing (Hugging Face; see the huggingface skill)
 
-Hugging Face (see the huggingface skill): dataset repo with the card, splits as configurations, license, and Croissant
-metadata; gated access when terms must be accepted. Don't publish data you don't have the rights to share.
+- Only data you have the right to share; check every source license and consent scope.
+- Card YAML: `license`, `pretty_name`, `task_categories`, `size_categories`, `configs` (data_files per split). Parquet
+  files; `Dataset.push_to_hub(repo_id, config_name=…, private=True)` or `hf upload <id> <dir> --repo-type dataset`.
+- Gate when terms must be accepted: `hf repos settings <id> --gated manual|auto --repo-type dataset`. Start private, check
+  the dataset viewer and Croissant, then make public; tag the release; get a DOI if it must be cited.
 
-## Tools (Python through Pixi)
+## Tools (all via Pixi; conda-forge unless noted)
 
-pandas/polars, pyarrow, `datasets`, `cleanlab` (label issues), `imagededup` or perceptual hashing, `datasketch` (MinHash),
-`great-expectations` or `pandera` (schema validation), `scikit-learn` (`GroupKFold`, `StratifiedGroupKFold`,
-`TimeSeriesSplit`). Look up methods and checklists with `library_search` (datasheets, data cards, leakage).
+pandas/polars, pyarrow, `datasets`, `huggingface_hub` (`hf` CLI), `cleanlab`, `datasketch`, `imagehash`, `imagededup`,
+`krippendorff` (PyPI), `pingouin`, `statsmodels`, `pandera`/`great-expectations`, `scikit-learn` splitters,
+`mlcroissant`, `fiftyone` (visual dataset review), `mlflow`.

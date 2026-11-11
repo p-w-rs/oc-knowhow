@@ -8,7 +8,8 @@
   \node[blk, right=of x] (enc) {encoder $f_\theta$};
   \node[blk, above right=of enc] (h1) {head 1};
   \node[blk, below right=of enc] (h2) {head 2};
-  \node[blk, right=28mm of enc] (y) {$\hat y = g(h_1, h_2)$};
+  \coordinate (m) at (h1.east |- enc);   % level with the encoder, right of the heads: symmetric fan-in
+  \node[blk, right=of m] (y) {$\hat y = g(h_1, h_2)$};
   \draw[->] (x) -- (enc);
   \draw[->] (enc) -- (h1); \draw[->] (enc) -- (h2);
   \draw[->] (h1) -- (y); \draw[->] (h2) -- (y);

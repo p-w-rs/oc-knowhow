@@ -1,6 +1,6 @@
 ---
 name: gpu-kernels
-description: Write, port and tune custom GPU kernels for NVIDIA and AMD — Triton (autotune, tensor descriptors/TMA, AMD wavefronts), CUDA C++ and HIP (hipify), CUTLASS/CuTe, PyTorch custom ops (torch.library.custom_op, triton_op) that work with torch.compile and export, correctness testing and benchmarking, and profiling with Nsight Systems/Compute and rocprofv3. Load before writing or optimizing any kernel.
+description: Write, port and tune custom GPU kernels for NVIDIA and AMD — Triton (autotune, tensor descriptors/TMA, AMD wavefronts, debugging), CUDA C++ and HIP (hipify), CUTLASS/CuTe, PyTorch custom ops (torch.library.custom_op, triton_op/wrap_triton, opcheck) that work with torch.compile and export, correctness testing (torch.testing.assert_close) and benchmarking (triton.testing.do_bench), and profiling with Nsight Systems/Compute and rocprofv3. Load before writing or optimizing any kernel.
 ---
 
 # Custom GPU kernels (NVIDIA and AMD)
@@ -8,27 +8,28 @@ description: Write, port and tune custom GPU kernels for NVIDIA and AMD — Trit
 ## Ground truth first
 
 - Check versions on the machine that will run the kernel: `nvidia-smi` / `nvcc --version` (CUDA), `rocminfo | grep
-  gfx` / `hipcc --version` (ROCm), `python -c "import torch, triton; print(torch.__version__, torch.version.cuda,
-  torch.version.hip, triton.__version__)"`, and the GPU's architecture (compute capability `torch.cuda.get_device_capability()`
-  or `gfx…`). Shared-memory size, warp/wavefront width and tensor-core features depend on it.
+  gfx` / `hipcc --version` (ROCm), `pixi run python -c "import torch, triton; print(torch.__version__, torch.version.cuda,
+  torch.version.hip, triton.__version__, torch.cuda.get_device_capability())"`. Shared-memory size, warp/wavefront
+  width and tensor-core features depend on the architecture (sm_80/90/100/120, gfx942/950, RDNA gfx11/12).
 - APIs move fast (Triton especially). Read the docs/tutorials for the installed version before writing code:
-  https://triton-lang.org/main/ (tutorials and `python-api`), https://docs.nvidia.com/cuda/ (programming guide,
-  release notes), https://rocm.docs.amd.com/ (HIP, HIPIFY, rocprofiler), https://docs.pytorch.org/docs/main/library.html.
-  As of November 2026: Triton 3.9 (NVIDIA cc 8.0+, AMD ROCm 6.2+), CUDA 13.5, ROCm 10.1, PyTorch 2.15, CUTLASS 4.8.
-  Verify; don't trust these numbers.
+  https://triton-lang.org/main/ (tutorials and `python-api`; tutorials in the repo at the matching tag
+  `python/tutorials/`), https://docs.nvidia.com/cuda/, https://rocm.docs.amd.com/ (HIP, HIPIFY, rocprofiler-sdk),
+  https://docs.pytorch.org/docs/stable/library.html. As of November 2026: Triton 3.9 (NVIDIA cc 8.0+, AMD ROCm 6.2+),
+  CUDA 13.5, ROCm 10.1, PyTorch 2.15, CUTLASS 4.8 (`nvidia-cutlass-dsl` for the Python DSL). Verify; don't trust these.
 
 ## Which tool
 
-1. **Don't write a kernel** if `torch.compile` (Inductor), a library (cuBLAS/hipBLASLt, cuDNN/MIOpen, FlashAttention,
-   `scaled_dot_product_attention`) or TensorRT fusion already does it. Profile first; write kernels for the measured
-   hot spots only.
+1. **Don't write a kernel** if `torch.compile` (Inductor; `mode="max-autotune"`), a library (cuBLAS/hipBLASLt,
+   cuDNN/MIOpen, FlashAttention, `scaled_dot_product_attention`, FlexAttention for custom attention masks/scores) or
+   TensorRT fusion already does it. Profile first (ml-training); write kernels for the measured hot spots only.
 2. **Triton** by default: one source for NVIDIA and AMD, autotuning, integrates with `torch.compile` and TensorRT
-   (AOT plugins). Good for fused element-wise/reduction/normalization/attention-like and custom GEMM epilogues.
+   (AOT plugins, ml-deploy). Good for fused element-wise/reduction/normalization/attention-like and custom GEMM epilogues.
 3. **CUDA C++ / HIP** when you need warp-level control, inline PTX, specific tensor-core instructions, or a C++
    runtime without Python (TensorRT C++ plugins, embedded). Write HIP-portable CUDA where possible and port with
    `hipify-clang` (accurate; needs CUDA headers) or `hipify-perl` (quick regex).
 4. **CUTLASS / CuTe (C++ or the CuTe Python DSL)** for high-performance GEMM/conv variants on NVIDIA (Hopper/Blackwell
-   TMA, warp specialization). Triton's **Gluon** is the lower-level option inside Triton for Blackwell.
+   TMA, warp specialization). **Gluon** (`triton.experimental.gluon`) is Triton's lower-level, layout-explicit
+   dialect for when plain Triton can't reach peak; experimental, the API changes between releases.
 
 ## Triton practices
 
@@ -38,42 +39,77 @@ description: Write, port and tune custom GPU kernels for NVIDIA and AMD — Trit
 @triton.jit
 def kernel(a_ptr, b_ptr, c_ptr, M, N, K, stride_am, ..., BLOCK_M: tl.constexpr, BLOCK_N: tl.constexpr, BLOCK_K: tl.constexpr): ...
 ```
-- Autotune over block sizes, `num_warps` and `num_stages`; key on the shape dimensions that change. AMD wavefronts are
-  64 wide: tune `num_warps` separately and include AMD-friendly configs (AMD also has `waves_per_eu`, `matrix_instr_nonkdim`
-  kwargs; check the docs).
-- Use **tensor descriptors** (`tl.make_tensor_descriptor` / host `TensorDescriptor`) for block loads: they map to TMA on
-  Hopper/Blackwell (2–5 dims, 16-byte aligned base, contiguous last dim). Block pointers still work.
+- Autotune over block sizes, `num_warps` and `num_stages`; key on the shape dimensions that change (bucket them,
+  e.g. next power of 2, or every new shape re-tunes). Prune with `prune_configs_by`; kernels that accumulate into an
+  output need `reset_to_zero=[...]` (autotuning runs the kernel several times). `TRITON_PRINT_AUTOTUNING=1` prints the
+  winner; `cache_results=True` (or `TRITON_CACHE_AUTOTUNING=1`) caches timings on disk.
+- **AMD**: wavefront is 64 on CDNA (MI200/MI300/MI350, gfx9) and 32 on RDNA (gfx10+), so `num_warps` means different
+  thread counts: tune separately. AMD-specific `triton.Config` kwargs: `waves_per_eu`, `matrix_instr_nonkdim`
+  (`kpack` is deprecated from gfx950). Check the ROCm Triton optimization guide for the installed version.
+- **Tensor descriptors** for block loads/stores: host `TensorDescriptor.from_tensor(t, block_shape)`
+  (`triton.tools.tensor_descriptor`) or device `tl.make_tensor_descriptor(...)` (needs `triton.set_allocator(fn)` for
+  its scratch memory, see tutorial 09). They map to TMA on Hopper/Blackwell. Constraints: rank 1–5, base and all
+  strides except the last 16-byte aligned, last dim contiguous. Block pointers (`tl.make_block_ptr`) still work.
 - Masks for boundaries, `tl.multiple_of`/`tl.max_contiguous` hints, accumulate in FP32, cast at the store. Fuse the
-  epilogue (bias, activation, residual, quantization) instead of separate kernels.
-- Debug: `TRITON_INTERPRET=1` (CPU interpreter), `TRITON_KERNEL_DUMP=1 TRITON_DUMP_DIR=…` to see IR/PTX/AMDGCN.
+  epilogue (bias, activation, residual, quantization) instead of separate kernels. Use `tl.dot(..., input_precision=…)`
+  deliberately for FP32 inputs (`ieee` vs `tf32`).
+- Debug: `TRITON_INTERPRET=1` (CPU interpreter; `print`/`pdb` work; slow, use tiny shapes), `tl.device_print`,
+  `tl.device_assert` (with `TRITON_DEBUG=1`), `TRITON_KERNEL_DUMP=1 TRITON_DUMP_DIR=…` to see IR/PTX/AMDGCN,
+  `TRITON_ALWAYS_COMPILE=1` to bypass the cache. `compute-sanitizer` (NVIDIA) for out-of-bounds/race checks.
 
 ## PyTorch integration
 
-- Triton kernels: `@torch.library.triton_op("mylib::op", mutates_args={})` and launch with `wrap_triton(kernel)[grid](…)`
-  so `torch.compile`, `torch.export` and AOTInductor can trace through it; kernels used in backward must also be wrapped.
-- Other kernels (CUDA/HIP extensions): `@torch.library.custom_op("mylib::op", mutates_args=())`, plus
-  `.register_fake` (shape/dtype only; required for compile/export), `.register_autograd` for gradients, and validate with
-  `torch.library.opcheck`. Build C++/CUDA extensions with `torch.utils.cpp_extension` or CMake in a Pixi environment.
-- The same custom op can become a TensorRT plugin for deployment (see the ml-deploy skill).
+- A plain `@triton.jit` kernel called from Python already works under `torch.compile`. Wrap it as an operator when it
+  must behave like a PyTorch op (export/AOTInductor, tensor subclasses, autograd registration):
+  ```python
+  from torch.library import triton_op, wrap_triton
+  @triton_op("mylib::add", mutates_args={})
+  def add(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+      out = torch.empty_like(x); n = out.numel()
+      wrap_triton(add_kernel)[(triton.cdiv(n, 1024),)](x, y, out, n, BLOCK_SIZE=1024)
+      return out
+  ```
+  `triton_op` lets compile/export see into the kernels; every Triton call inside, including in backward, goes
+  through `wrap_triton`. Gradients: `add.register_autograd(backward, setup_context=...)`.
+- Other kernels (CUDA/HIP extensions, opaque code): `@torch.library.custom_op("mylib::op", mutates_args=())` with type
+  annotations, plus `.register_fake` (shape/dtype only, no data access; required for compile/export) and
+  `.register_autograd`. Validate every op with `torch.library.opcheck(op, args)` on several inputs and devices.
+  Build C++/CUDA extensions with `torch.utils.cpp_extension` (`load_inline` for prototypes) or CMake in Pixi.
+- The same custom op can become a TensorRT plugin for deployment (see ml-deploy). Quantized kernels: ml-qat.
 
 ## Correctness and speed (every kernel)
 
-- Test against a reference (PyTorch eager, FP32/FP64) over random inputs, several shapes (including non-multiples of the
-  block size and size 1), dtypes, strides/non-contiguous inputs; tolerances appropriate to the dtype
-  (`torch.testing.assert_close`). Test both NVIDIA and AMD when supporting both.
-- Benchmark with `triton.testing.do_bench` or CUDA events (warm-up, many reps, synchronize), report achieved bandwidth
-  (GB/s) or FLOP/s against the device's peak, and compare to the baseline it replaces (PyTorch eager and `torch.compile`).
-- Profile: NVIDIA `nsys profile -t cuda,nvtx -o r …` → `nsys stats --format csv -r cuda_gpu_kern_sum r.nsys-rep`;
-  per-kernel `ncu --set full -k regex:name -c 1 -o k …` → `ncu -i k.ncu-rep --csv --page details` (look at memory
-  throughput, achieved occupancy, warp stall reasons, bank conflicts). AMD `rocprofv3 --kernel-trace --stats -d out --
-  python …` (output is a rocpd SQLite db; convert with `rocpd convert … --output-format csv`), deeper analysis with
-  `rocprof-compute profile/analyze`. Read results as text; don't guess.
+```python
+import torch, triton
+for shape in [(1, 1), (127, 33), (4096, 4096), (3, 70001)]:                  # incl. non-multiples of the block
+    for dtype in (torch.float32, torch.bfloat16, torch.float16):
+        x = torch.randn(shape, device="cuda", dtype=dtype); y = torch.randn_like(x)
+        ref = (x.double() + y.double()).to(dtype)                            # high-precision reference
+        torch.testing.assert_close(add(x, y), ref)                           # default rtol/atol chosen per dtype
+ms = triton.testing.do_bench(lambda: add(x, y))                             # ms, mean by default; warm-up + reps
+gbps = 3 * x.numel() * x.element_size() / (ms * 1e-3) / 1e9                 # bytes read + written / time
+```
+- Test against a reference (PyTorch eager in FP32/FP64) over random inputs, shapes (non-multiples of the block size,
+  size 1, large), dtypes, non-contiguous/strided inputs (`x.t()`, slices), and the backward (`torch.autograd.gradcheck`
+  in float64 for small inputs). Tighter tolerances need justification; looser ones need an explanation (e.g. bf16
+  accumulation order). Test on NVIDIA and AMD when supporting both.
+- Benchmark with `triton.testing.do_bench` (`quantiles=[0.5, 0.2, 0.8]` for spread; `do_bench_cudagraph` for tiny
+  kernels where launch overhead dominates) or CUDA events with warm-up and `torch.cuda.synchronize()`. Report GB/s or
+  TFLOP/s against the device's peak (roofline: is it memory- or compute-bound?), and compare to the baseline it
+  replaces (eager and `torch.compile`), over the shapes that occur in the model. Log results to MLflow (ml-training).
+- Profile: NVIDIA `nsys profile -t cuda,nvtx -o r …` → `nsys stats -r cuda_gpu_kern_sum --format csv r.nsys-rep`;
+  per-kernel `ncu --set full -k regex:name -c 1 -o k …` → `ncu -i k.ncu-rep --csv --page details` (memory throughput,
+  achieved occupancy, warp stall reasons, bank conflicts). AMD `rocprofv3 --kernel-trace --stats -d out -- python …`
+  (default output is a rocpd SQLite database; `rocpd convert -i <file>_results.db --output-format csv`, or pass
+  `--output-format csv` directly), deeper analysis with `rocprof-compute profile/analyze`. Read results as text; don't guess.
 
 ## Environments (Pixi)
 
 - NVIDIA: conda-forge `pytorch-gpu` with `cuda-version = "13.*"` and a CUDA-declaring platform
   (`platforms = [{ platform = "linux-64", cuda = "13.0" }]`), plus `triton`, `cuda-nvcc`, `cuda-cudart-dev` for
-  extensions. AMD: PyTorch ROCm wheels from the PyPI index in a separate feature/environment
-  (`torch = { version = "...", index = "https://download.pytorch.org/whl/rocm<ver>" }`; conda-forge has no ROCm PyTorch).
-  Keep CUDA and ROCm in separate Pixi environments (`pixi run -e cuda …`, `pixi run -e rocm …`).
+  extensions (and `cuda-version` matching what PyTorch was built with). AMD: PyTorch ROCm wheels from the PyPI index
+  in a separate feature/environment (`torch = { version = "...", index = "https://download.pytorch.org/whl/rocm<ver>" }`,
+  which bring a matching `triton`; conda-forge has no ROCm PyTorch). Keep CUDA and ROCm in separate Pixi environments
+  (`pixi run -e cuda …`, `pixi run -e rocm …`). Details: ml-training "Environment".
 - Select GPUs with `CUDA_VISIBLE_DEVICES` (NVIDIA) / `HIP_VISIBLE_DEVICES` (AMD; ROCm PyTorch also honors the CUDA one).
+- Triton caches compiled kernels in `~/.triton/cache` (`TRITON_CACHE_DIR`); clear it when results look stale.

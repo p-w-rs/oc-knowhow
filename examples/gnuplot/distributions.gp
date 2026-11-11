@@ -3,15 +3,21 @@ load "_common.gp"
 set print $data
 do for [g=1:3] { do for [i=1:60] { print sprintf("%d %.4f", g, invnorm(rand(0))*(0.6+0.2*g) + 2.0*sqrt(g)) } }
 unset print
-# 1. densities first (before setting the x range for the figure: kdensity samples over the current x range)
+# 1. densities first. kdensity samples over the current x range (autoscaled = data min..max, which cuts the tails
+#    off), so set the range per group to data range ± 3 bandwidths. Weight 1/n makes each curve a density (area 1).
+bw = 0.35
 set table $violins
 set samples 200
-set xrange [*:*]
-# weight 1/n per point makes each curve a proper density (area 1); columns of the table: value, density
-plot for [g=1:3] $data using ($1==g ? $2 : NaN):(1.0/60) smooth kdensity bandwidth 0.35
+do for [g=1:3] {
+  stats $data using ($1==g ? $2 : NaN) nooutput
+  set xrange [STATS_min - 3*bw : STATS_max + 3*bw]
+  plot $data using ($1==g ? $2 : NaN):(1.0/STATS_records) smooth kdensity bandwidth bw
+}
 unset table
+# columns of the table: value, density; one block per group (index g-1)
 # 2. figure: violin (mirrored density) + box summary + every point jittered
 set xrange [0.3:3.7]
+set yrange [*:*]
 set xtics ("Baseline" 1, "+ Aug" 2, "+ Aug + Distill" 3)
 set ylabel "Score"
 set jitter overlap 1 spread 0.25
