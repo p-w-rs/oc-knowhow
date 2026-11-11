@@ -1,0 +1,64 @@
+{
+  "name": "oc-knowhow",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "description": "Expert know-how for OpenCode agents: data science (statistics, experiment design, datasets), gnuplot figures, diagrams, machine learning, and a private reference library with citations",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/p-w-rs/oc-knowhow.git"
+  },
+  "homepage": "https://github.com/p-w-rs/oc-knowhow#readme",
+  "bugs": {
+    "url": "https://github.com/p-w-rs/oc-knowhow/issues"
+  },
+  "exports": {
+    ".": "./plugin/index.ts",
+    "./gui-experimental": "./dist/gui-experimental.cjs"
+  },
+  "files": [
+    "plugin/*.ts",
+    "plugin/*.tsx",
+    "plugin/*.mjs",
+    "!plugin/*.test.ts",
+    "!plugin/test*.ts",
+    "dist/gui-experimental.cjs",
+    "scripts/*.mjs",
+    "skill",
+    "README.md",
+    "pixi.toml",
+    "pixi.lock",
+    "npm-shrinkwrap.json",
+    "tsconfig.json",
+    "vite.config.ts",
+    "references.json",
+    "examples"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test plugin/*.test.ts scripts/*.test.ts",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "fflate": "0.8.3",
+    "jsonc-parser": "3.3.1",
+    "unpdf": "2.1.0"
+  },
+  "devDependencies": {
+    "@opencode/plugin": "2.2.6",
+    "@types/node": "24.10.0",
+    "solid-js": "1.9.18",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vite": "8.3.6",
+    "vite-plugin-solid": "2.11.15"
+  }
+}

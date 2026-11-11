@@ -1,0 +1,7 @@
+%% Mermaid flowchart: renders in GitHub/GitLab Markdown and many viewers.
+flowchart LR
+  Q[Question] --> D{Paired data?}
+  D -- yes --> P[Paired test / bootstrap of differences]
+  D -- no --> W[Welch / bootstrap]
+  P --> R[Report estimate + 95% CI]
+  W --> R

@@ -1,0 +1,24 @@
+# System architecture with containers, a data store and labeled flows (D2).
+direction: right
+vars: { d2-config: { layout-engine: elk } }
+classes: {
+  svc: { style: { border-radius: 6; fill: "#E8F1FB"; stroke: "#0072B2" } }
+  store: { shape: cylinder; style: { fill: "#FFF4E0"; stroke: "#E69F00" } }
+}
+user: User { shape: person }
+edge: Edge device {
+  label.near: bottom-center   # container titles away from connections that enter from the top
+  camera: Camera
+  infer: TensorRT engine { class: svc }
+  camera -> infer: frames
+}
+cloud: Cloud {
+  label.near: bottom-center
+  api: Ingest API { class: svc }
+  db: Results { class: store }
+  dash: Dashboard { class: svc }
+  api -> db: write
+  db -> dash: query
+}
+edge.infer -> cloud.api: detections (MQTT)
+user -> cloud.dash: views

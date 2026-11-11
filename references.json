@@ -1,0 +1,710 @@
+{
+  "format": "oc-knowhow-references/1",
+  "note": "Links to freely available sources, downloaded by each user to their own computer for their own use. Nothing here is redistributed by oc-knowhow.",
+  "sources": [
+    {
+      "id": "biostat-handbook",
+      "title": "Handbook of Biological Statistics (3rd ed.)",
+      "authors": "J. H. McDonald",
+      "year": 2014,
+      "kind": "pdf",
+      "url": "http://www.biostathandbook.com/HandbookBioStatThird.pdf",
+      "license": "free to read and print; see biostathandbook.com/permissions.html",
+      "fields": [
+        "statistics",
+        "biology"
+      ],
+      "status": "dated",
+      "useFor": "choosing a classic test for a given data type (nominal vs measurement, paired, nested), worked explanations of chi-square/G-tests, ANOVA variants, regression basics",
+      "note": "Sound core; outdated where it recommends normality/variance pre-tests to pick a test, a fixed 0.05 cutoff, stepwise regression, Student's rather than Welch's t-test by default, and SAS/spreadsheets. Follow the stats-inference skill on those points."
+    },
+    {
+      "id": "asa-pvalue-2016",
+      "title": "The ASA Statement on p-Values: Context, Process, and Purpose",
+      "authors": "R. L. Wasserstein, N. A. Lazar",
+      "year": 2016,
+      "kind": "pdf",
+      "url": "https://www.amstat.org/asa/files/pdfs/p-valuestatement.pdf",
+      "license": "free to read",
+      "fields": [
+        "statistics"
+      ],
+      "status": "current",
+      "useFor": "the six principles on what p-values do and do not mean"
+    },
+    {
+      "id": "asa-beyond-005",
+      "title": "Moving to a World Beyond \"p < 0.05\"",
+      "authors": "R. L. Wasserstein, A. L. Schirm, N. A. Lazar",
+      "year": 2019,
+      "kind": "link",
+      "url": "https://doi.org/10.1080/00031305.2019.1583913",
+      "license": "open access",
+      "fields": [
+        "statistics"
+      ],
+      "status": "current",
+      "useFor": "why not to use 'statistically significant' as a threshold; reporting continuous evidence"
+    },
+    {
+      "id": "jcgm-gum",
+      "title": "JCGM 100:2008 Guide to the Expression of Uncertainty in Measurement (GUM)",
+      "authors": "BIPM/JCGM",
+      "year": 2008,
+      "kind": "pdf",
+      "url": "https://www.bipm.org/documents/20126/2071204/JCGM_100_2008_E.pdf",
+      "license": "free from BIPM",
+      "fields": [
+        "measurement",
+        "physics",
+        "engineering"
+      ],
+      "status": "current",
+      "useFor": "type A/B uncertainty, combined and expanded uncertainty, uncertainty budgets"
+    },
+    {
+      "id": "ros",
+      "title": "Regression and Other Stories",
+      "authors": "A. Gelman, J. Hill, A. Vehtari",
+      "year": 2020,
+      "kind": "pdf",
+      "url": "https://users.aalto.fi/~ave/ROS.pdf",
+      "license": "free PDF from the authors",
+      "fields": [
+        "statistics",
+        "regression",
+        "causal"
+      ],
+      "status": "current",
+      "useFor": "applied regression, simulation-based checking, interactions, causal inference with regression, transformations, poststratification"
+    },
+    {
+      "id": "bda3",
+      "title": "Bayesian Data Analysis (3rd ed.)",
+      "authors": "A. Gelman et al.",
+      "year": 2013,
+      "kind": "pdf",
+      "url": "http://www.stat.columbia.edu/~gelman/book/BDA3.pdf",
+      "license": "free PDF from the authors",
+      "fields": [
+        "statistics",
+        "bayesian"
+      ],
+      "status": "current",
+      "useFor": "Bayesian modeling, hierarchical models, model checking, MCMC diagnostics"
+    },
+    {
+      "id": "what-if",
+      "title": "Causal Inference: What If",
+      "authors": "M. A. Hernán, J. M. Robins",
+      "year": 2026,
+      "kind": "pdf",
+      "url": "https://miguelhernan.org/s/hernanrobins_WhatIf_19aug26.pdf",
+      "license": "free PDF from the authors",
+      "fields": [
+        "causal",
+        "epidemiology",
+        "statistics"
+      ],
+      "status": "current",
+      "useFor": "potential outcomes, DAGs, confounding/selection bias, IP weighting, g-methods, target trial emulation"
+    },
+    {
+      "id": "the-effect",
+      "title": "The Effect: An Introduction to Research Design and Causality",
+      "authors": "N. Huntington-Klein",
+      "year": 2022,
+      "kind": "link",
+      "url": "https://theeffectbook.net/",
+      "license": "free online",
+      "fields": [
+        "causal",
+        "economics"
+      ],
+      "status": "current",
+      "useFor": "research design, difference-in-differences, regression discontinuity, instrumental variables, matching"
+    },
+    {
+      "id": "mixtape",
+      "title": "Causal Inference: The Mixtape",
+      "authors": "S. Cunningham",
+      "year": 2021,
+      "kind": "link",
+      "url": "https://mixtape.scunning.com/",
+      "license": "free online",
+      "fields": [
+        "causal",
+        "economics"
+      ],
+      "status": "current",
+      "useFor": "applied causal designs with code"
+    },
+    {
+      "id": "fpp-python",
+      "title": "Forecasting: Principles and Practice (Python edition)",
+      "authors": "R. J. Hyndman et al.",
+      "year": 2025,
+      "kind": "link",
+      "url": "https://otexts.com/fpppy/",
+      "license": "free online",
+      "fields": [
+        "forecasting",
+        "time-series"
+      ],
+      "status": "current",
+      "useFor": "time-series decomposition, ETS/ARIMA, forecast evaluation with time-respecting cross-validation"
+    },
+    {
+      "id": "openintro",
+      "title": "OpenIntro Statistics (4th ed.)",
+      "authors": "D. Diez, M. Çetinkaya-Rundel, C. Barr",
+      "year": 2019,
+      "kind": "link",
+      "url": "https://www.openintro.org/book/os/",
+      "license": "free (pay what you want)",
+      "fields": [
+        "statistics"
+      ],
+      "status": "current",
+      "useFor": "plain-language introductions to inference"
+    },
+    {
+      "id": "islp",
+      "title": "An Introduction to Statistical Learning with Applications in Python",
+      "authors": "G. James et al.",
+      "year": 2023,
+      "kind": "link",
+      "url": "https://www.statlearning.com/",
+      "license": "free PDF from the authors",
+      "fields": [
+        "statistics",
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "resampling, model selection, regularization, trees, SVMs, unsupervised learning in Python"
+    },
+    {
+      "id": "rliable",
+      "title": "Deep Reinforcement Learning at the Edge of the Statistical Precipice",
+      "authors": "R. Agarwal et al.",
+      "year": 2021,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2108.13264",
+      "license": "arXiv",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "interval estimates over few runs, IQM, performance profiles, probability of improvement across tasks"
+    },
+    {
+      "id": "bouthillier-variance",
+      "title": "Accounting for Variance in Machine Learning Benchmarks",
+      "authors": "X. Bouthillier et al.",
+      "year": 2021,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2103.03098",
+      "license": "arXiv",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "sources of variance between runs (seeds, data order, hyperparameter search) and how to randomize them when comparing models"
+    },
+    {
+      "id": "dodge-show-your-work",
+      "title": "Show Your Work: Improved Reporting of Experimental Results",
+      "authors": "J. Dodge et al.",
+      "year": 2019,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1909.03004",
+      "license": "arXiv",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "expected validation performance as a function of tuning budget; comparing models with fair budgets"
+    },
+    {
+      "id": "benavoli-2017",
+      "title": "Time for a Change: a Tutorial for Comparing Multiple Classifiers Through Bayesian Analysis",
+      "authors": "A. Benavoli et al.",
+      "year": 2017,
+      "kind": "pdf",
+      "url": "https://jmlr.org/papers/volume18/16-305/16-305.pdf",
+      "license": "JMLR open access",
+      "fields": [
+        "ml",
+        "evaluation",
+        "bayesian"
+      ],
+      "status": "current",
+      "useFor": "comparing classifiers across datasets and folds with Bayesian tests and a region of practical equivalence"
+    },
+    {
+      "id": "demsar-2006",
+      "title": "Statistical Comparisons of Classifiers over Multiple Data Sets",
+      "authors": "J. Demšar",
+      "year": 2006,
+      "kind": "pdf",
+      "url": "https://jmlr.org/papers/volume7/demsar06a/demsar06a.pdf",
+      "license": "JMLR open access",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "dated",
+      "supersededBy": "benavoli-2017",
+      "useFor": "Wilcoxon signed-rank and Friedman/Nemenyi procedures and critical-difference diagrams",
+      "note": "Still widely cited; prefer effect sizes with intervals and the Bayesian/ROPE approach for decisions; Nemenyi post-hoc depends on which other classifiers are included."
+    },
+    {
+      "id": "lones-pitfalls",
+      "title": "How to avoid machine learning pitfalls: a guide for academic researchers",
+      "authors": "M. A. Lones",
+      "year": 2024,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2108.02497",
+      "license": "arXiv",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "checklist of common mistakes in data handling, evaluation, comparison and reporting"
+    },
+    {
+      "id": "kapoor-leakage",
+      "title": "Leakage and the Reproducibility Crisis in ML-based Science",
+      "authors": "S. Kapoor, A. Narayanan",
+      "year": 2023,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2207.07048",
+      "license": "arXiv",
+      "fields": [
+        "ml",
+        "datasets",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "taxonomy of data leakage and model info sheets"
+    },
+    {
+      "id": "reforms",
+      "title": "REFORMS: Reporting Standards for Machine Learning Based Science",
+      "authors": "S. Kapoor et al.",
+      "year": 2024,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2308.07832",
+      "license": "arXiv",
+      "fields": [
+        "ml",
+        "reporting"
+      ],
+      "status": "current",
+      "useFor": "reporting checklist for ML-based science"
+    },
+    {
+      "id": "datasheets",
+      "title": "Datasheets for Datasets",
+      "authors": "T. Gebru et al.",
+      "year": 2021,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1803.09010",
+      "license": "arXiv",
+      "fields": [
+        "datasets"
+      ],
+      "status": "current",
+      "useFor": "questions a dataset's documentation should answer: motivation, composition, collection, preprocessing, uses, distribution, maintenance"
+    },
+    {
+      "id": "data-cards",
+      "title": "Data Cards: Purposeful and Transparent Dataset Documentation",
+      "authors": "M. Pushkarna et al.",
+      "year": 2022,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2204.01075",
+      "license": "arXiv",
+      "fields": [
+        "datasets"
+      ],
+      "status": "current",
+      "useFor": "structured, audience-aware dataset documentation"
+    },
+    {
+      "id": "croissant",
+      "title": "Croissant: A Metadata Format for ML-Ready Datasets",
+      "authors": "M. Akhtar et al.",
+      "year": 2024,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2403.19546",
+      "license": "arXiv",
+      "fields": [
+        "datasets"
+      ],
+      "status": "current",
+      "useFor": "machine-readable dataset metadata (used by Hugging Face, Kaggle, OpenML)"
+    },
+    {
+      "id": "data-statements",
+      "title": "Data Statements for NLP",
+      "authors": "E. Bender, B. Friedman",
+      "year": 2018,
+      "kind": "pdf",
+      "url": "https://aclanthology.org/Q18-1041.pdf",
+      "license": "CC BY 4.0",
+      "fields": [
+        "datasets",
+        "nlp"
+      ],
+      "status": "current",
+      "useFor": "documenting language data: speakers, annotators, curation rationale"
+    },
+    {
+      "id": "crameri-colour",
+      "title": "The misuse of colour in science communication",
+      "authors": "F. Crameri, G. E. Shephard, P. J. Heron",
+      "year": 2020,
+      "kind": "pdf",
+      "url": "https://www.nature.com/articles/s41467-020-19160-7.pdf",
+      "license": "CC BY 4.0",
+      "fields": [
+        "visualization"
+      ],
+      "status": "current",
+      "useFor": "perceptually uniform, colour-vision-deficiency friendly colour maps; why rainbow/jet distorts data"
+    },
+    {
+      "id": "prisma-2020",
+      "title": "The PRISMA 2020 statement",
+      "authors": "M. J. Page et al.",
+      "year": 2021,
+      "kind": "link",
+      "url": "https://doi.org/10.1136/bmj.n71",
+      "license": "CC BY",
+      "fields": [
+        "reporting",
+        "meta-analysis"
+      ],
+      "status": "current",
+      "useFor": "reporting systematic reviews and meta-analyses"
+    },
+    {
+      "id": "equator",
+      "title": "EQUATOR Network reporting guidelines (CONSORT, STROBE, TRIPOD+AI, SPIRIT, STARD, ARRIVE …)",
+      "authors": "EQUATOR Network",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://www.equator-network.org/reporting-guidelines/",
+      "license": "free online",
+      "fields": [
+        "reporting",
+        "clinical",
+        "epidemiology"
+      ],
+      "status": "current",
+      "useFor": "finding the reporting guideline for a study design; check for the latest version (e.g. CONSORT 2025)"
+    },
+    {
+      "id": "tripod-ai",
+      "title": "TRIPOD+AI statement",
+      "authors": "G. S. Collins et al.",
+      "year": 2024,
+      "kind": "link",
+      "url": "https://doi.org/10.1136/bmj-2023-078378",
+      "license": "open access",
+      "fields": [
+        "reporting",
+        "clinical",
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "reporting clinical prediction models, including ML"
+    },
+    {
+      "id": "riley-sample-size",
+      "title": "Calculating the sample size required for developing a clinical prediction model",
+      "authors": "R. D. Riley et al.",
+      "year": 2020,
+      "kind": "link",
+      "url": "https://doi.org/10.1136/bmj.m441",
+      "license": "open access",
+      "fields": [
+        "clinical",
+        "statistics",
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "minimum sample size for prediction models (pmsampsize criteria)"
+    },
+    {
+      "id": "roberts-cv",
+      "title": "Cross-validation strategies for data with temporal, spatial, hierarchical, or phylogenetic structure",
+      "authors": "D. R. Roberts et al.",
+      "year": 2017,
+      "kind": "link",
+      "url": "https://doi.org/10.1111/ecog.02881",
+      "license": "open access",
+      "fields": [
+        "ml",
+        "ecology",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "blocked cross-validation for dependent data"
+    },
+    {
+      "id": "cochrane-handbook",
+      "title": "Cochrane Handbook for Systematic Reviews of Interventions (current version)",
+      "authors": "J. P. T. Higgins et al. (eds.)",
+      "year": 2024,
+      "kind": "link",
+      "url": "https://www.cochrane.org/authors/handbooks-and-manuals/handbook/current",
+      "license": "free to read online",
+      "fields": [
+        "meta-analysis",
+        "clinical"
+      ],
+      "status": "current",
+      "useFor": "systematic reviews, risk of bias (RoB 2, ROBINS-I), meta-analysis methods, GRADE"
+    },
+    {
+      "id": "wilke-dataviz",
+      "title": "Fundamentals of Data Visualization",
+      "authors": "C. O. Wilke",
+      "year": 2019,
+      "kind": "link",
+      "url": "https://clauswilke.com/dataviz/",
+      "license": "free online",
+      "fields": [
+        "visualization"
+      ],
+      "status": "current",
+      "useFor": "choosing chart types, colour, uncertainty visualization, avoiding misleading figures"
+    },
+    {
+      "id": "gnuplot-manual",
+      "title": "gnuplot 6 User Manual",
+      "authors": "T. Williams, C. Kelley et al.",
+      "year": 2026,
+      "kind": "pdf",
+      "url": "http://www.gnuplot.info/docs_6.0/Gnuplot_6.pdf",
+      "license": "gnuplot license (free)",
+      "fields": [
+        "gnuplot",
+        "visualization"
+      ],
+      "status": "current",
+      "useFor": "every command, option and terminal of gnuplot 6"
+    },
+    {
+      "id": "gnuplot-release-notes",
+      "title": "gnuplot 6.0.6 release notes",
+      "authors": "gnuplot developers",
+      "year": 2026,
+      "kind": "html",
+      "url": "http://www.gnuplot.info/ReleaseNotes_6_0_6.html",
+      "license": "free",
+      "fields": [
+        "gnuplot"
+      ],
+      "status": "current",
+      "useFor": "what changed in recent 6.0.x releases"
+    },
+    {
+      "id": "gnuplot-source",
+      "title": "gnuplot 6.0.6 demo scripts and documentation source",
+      "authors": "gnuplot developers",
+      "year": 2026,
+      "kind": "gnuplot-source",
+      "url": "https://sourceforge.net/projects/gnuplot/files/gnuplot/6.0.6/gnuplot-6.0.6.tar.gz/download",
+      "sha256": "9d39d8499c9533550144092375aac45ba8bf0c18c9cee50897fe411b6d93004e",
+      "license": "gnuplot license (free)",
+      "fields": [
+        "gnuplot",
+        "visualization"
+      ],
+      "status": "current",
+      "useFor": "working demo scripts for nearly every plot type and feature (search by what you want to draw), and the manual's source text"
+    },
+    {
+      "id": "lwn-gnuplot-52",
+      "title": "What's new in gnuplot 5.2",
+      "authors": "L. Phillips (LWN)",
+      "year": 2017,
+      "kind": "html",
+      "url": "https://lwn.net/Articles/723818/",
+      "license": "free to read",
+      "fields": [
+        "gnuplot"
+      ],
+      "status": "current",
+      "useFor": "nonlinear axes, arrays, voxel-adjacent features introduced in 5.2"
+    },
+    {
+      "id": "lwn-gnuplot-54",
+      "title": "New features in gnuplot 5.4",
+      "authors": "L. Phillips (LWN)",
+      "year": 2020,
+      "kind": "html",
+      "url": "https://lwn.net/Articles/826456/",
+      "license": "free to read",
+      "fields": [
+        "gnuplot"
+      ],
+      "status": "current",
+      "useFor": "5.4 features with examples"
+    },
+    {
+      "id": "lwn-gnuplot-voxels",
+      "title": "Voxel plotting with gnuplot 5.4",
+      "authors": "L. Phillips (LWN)",
+      "year": 2020,
+      "kind": "html",
+      "url": "https://lwn.net/Articles/828761/",
+      "license": "free to read",
+      "fields": [
+        "gnuplot",
+        "visualization"
+      ],
+      "status": "current",
+      "useFor": "volumetric (voxel) data, isosurfaces"
+    },
+    {
+      "id": "lwn-gnuplot-6",
+      "title": "Gnuplot 6 comes with pie",
+      "authors": "L. Phillips (LWN)",
+      "year": 2024,
+      "kind": "html",
+      "url": "https://lwn.net/Articles/961003/",
+      "license": "free to read",
+      "fields": [
+        "gnuplot"
+      ],
+      "status": "current",
+      "useFor": "gnuplot 6 features: if/else blocks, function blocks, watchpoints, polar grids, sectors"
+    },
+    {
+      "id": "lwn-gnuplot-intro",
+      "title": "Plotting tools for Linux: gnuplot",
+      "authors": "L. Phillips (LWN)",
+      "year": 2015,
+      "kind": "html",
+      "url": "https://lwn.net/Articles/628537/",
+      "license": "free to read",
+      "fields": [
+        "gnuplot"
+      ],
+      "status": "dated",
+      "useFor": "overview of gnuplot's approach",
+      "note": "Written for gnuplot 5.0; check commands against the 6.x manual."
+    },
+    {
+      "id": "pgf-tikz-manual",
+      "title": "TikZ & PGF Manual",
+      "authors": "T. Tantau et al.",
+      "year": 2026,
+      "kind": "pdf",
+      "url": "https://mirrors.ctan.org/graphics/pgf/base/doc/generic/pgf/pgfmanual.pdf",
+      "license": "LPPL / GFDL",
+      "fields": [
+        "diagrams",
+        "latex"
+      ],
+      "status": "current",
+      "useFor": "every TikZ library, node, path, graph drawing and positioning option"
+    },
+    {
+      "id": "d2-docs",
+      "title": "D2 language tour",
+      "authors": "Terrastruct",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://d2lang.com/tour/intro/",
+      "license": "free online",
+      "fields": [
+        "diagrams"
+      ],
+      "status": "current",
+      "useFor": "D2 syntax: shapes, connections, containers, classes, layouts (dagre/elk), themes, sequence diagrams, grid"
+    },
+    {
+      "id": "graphviz-docs",
+      "title": "Graphviz documentation (DOT language, attributes, layouts)",
+      "authors": "Graphviz",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://graphviz.org/documentation/",
+      "license": "free online",
+      "fields": [
+        "diagrams"
+      ],
+      "status": "current",
+      "useFor": "DOT syntax, node/edge/graph attributes, dot/neato/fdp/sfdp/circo/twopi layouts"
+    },
+    {
+      "id": "mermaid-docs",
+      "title": "Mermaid documentation",
+      "authors": "Mermaid",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://mermaid.js.org/intro/",
+      "license": "free online",
+      "fields": [
+        "diagrams"
+      ],
+      "status": "current",
+      "useFor": "flowchart, sequence, class, state, ER, gantt, gitGraph syntax for Markdown viewers"
+    },
+    {
+      "id": "scipy-stats",
+      "title": "SciPy statistics reference",
+      "authors": "SciPy",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://docs.scipy.org/doc/scipy/reference/stats.html",
+      "license": "free online",
+      "fields": [
+        "statistics",
+        "python"
+      ],
+      "status": "current",
+      "useFor": "test functions, distributions, bootstrap/permutation_test, effect sizes"
+    },
+    {
+      "id": "statsmodels",
+      "title": "statsmodels documentation",
+      "authors": "statsmodels",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://www.statsmodels.org/stable/",
+      "license": "free online",
+      "fields": [
+        "statistics",
+        "python"
+      ],
+      "status": "current",
+      "useFor": "regression, GLM, mixed models, multiple testing, power, time series"
+    },
+    {
+      "id": "pymc",
+      "title": "PyMC and ArviZ documentation",
+      "authors": "PyMC developers",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://www.pymc.io/projects/docs/en/stable/",
+      "license": "free online",
+      "fields": [
+        "statistics",
+        "bayesian",
+        "python"
+      ],
+      "status": "current",
+      "useFor": "Bayesian models in Python, diagnostics with ArviZ"
+    }
+  ]
+}

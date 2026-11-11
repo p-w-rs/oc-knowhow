@@ -1,0 +1,13 @@
+// ML pipeline as a directed graph (Graphviz dot): ranked stages, clusters, consistent styling.
+digraph pipeline {
+  graph [rankdir=LR, fontname="Helvetica", nodesep=0.4, ranksep=0.6]
+  node  [shape=box, style="rounded,filled", fillcolor="#E8F1FB", color="#0072B2", fontname="Helvetica"]
+  edge  [color="#555555", fontname="Helvetica", fontsize=10]
+  subgraph cluster_data { label="Data"; style=dashed; color="#999999"
+    raw [label="raw/"]; clean [label="clean + dedup"]; split [label="group split"] }
+  subgraph cluster_model { label="Model"; style=dashed; color="#999999"
+    train [label="train (5 seeds)"]; eval [label="evaluate\n(paired CIs)"] }
+  deploy [label="export → TensorRT", fillcolor="#FFF4E0", color="#E69F00"]
+  raw -> clean -> split -> train -> eval -> deploy
+  eval -> train [label="ablation", style=dashed, constraint=false]
+}

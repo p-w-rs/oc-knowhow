@@ -1,0 +1,35 @@
+[workspace]
+name = "oc-knowhow"
+version = "1.0.0"
+description = "Expert know-how and a private reference library for OpenCode agents"
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "osx-64", "linux-64", "linux-aarch64"]
+
+[dependencies]
+nodejs = "24.*"
+# Unpacks the search engine download (.tar.xz) on systems whose tar has no xz support.
+xz = "5.*"
+# For the example scripts and the figure/diagram tests (agents use the project's own Pixi tools).
+gnuplot = "6.*"
+d2 = "*"
+graphviz = "*"
+librsvg = "*"
+
+[tasks]
+deps = "node scripts/deps.mjs"
+deps-update = "node scripts/deps.mjs --refresh --shrinkwrap"
+check = { cmd = "npm run check", depends-on = ["deps"] }
+build = { cmd = "npm run build", depends-on = ["deps"] }
+test = { cmd = "npm test", depends-on = ["check", "build"] }
+doctor = { cmd = "node --import tsx scripts/doctor.mjs", depends-on = ["build"] }
+setup-search = { cmd = "node --import tsx scripts/setup-search.mjs", depends-on = ["deps"] }
+examples = { cmd = "node --import tsx scripts/examples.mjs", depends-on = ["deps"] }
+library = { cmd = "node --import tsx scripts/library.mjs", depends-on = ["deps"] }
+install = { cmd = "node scripts/install.mjs", depends-on = ["build", "test"] }
+install-dev = { cmd = "node scripts/install.mjs --dev", depends-on = ["build"] }
+uninstall = { cmd = "node scripts/install.mjs --uninstall", depends-on = ["deps"] }
+rollback = { cmd = "node scripts/install.mjs --rollback", depends-on = ["deps"] }
+install-status = { cmd = "node scripts/install.mjs --status", depends-on = ["deps"] }
+smoke-host = { cmd = "node --import tsx scripts/smoke-host.mjs", depends-on = ["build"] }
+smoke-snapshot = { cmd = "node --import tsx scripts/smoke-host.mjs --snapshot", depends-on = ["build"] }
+desktop-dev = { cmd = "node --import tsx scripts/desktop-dev.mjs", depends-on = ["build"] }

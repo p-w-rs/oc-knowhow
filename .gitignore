@@ -1,0 +1,7 @@
+.pixi/
+node_modules/
+dist/
+.local/
+.opencode/
+.DS_Store
+.deps.lock

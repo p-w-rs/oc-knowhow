@@ -1,0 +1,10 @@
+# Sequence diagram (D2): who calls whom, in order.
+shape: sequence_diagram
+agent: Agent
+plugin: oc-huggingface
+hub: Hugging Face Hub
+agent -> plugin: hf download (token needed)
+plugin -> plugin: permission check
+plugin -> hub: GET files (Bearer token)
+hub -> plugin: 200 + files
+plugin -> agent: output (token masked)
