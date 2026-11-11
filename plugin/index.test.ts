@@ -57,7 +57,7 @@ test("identity, tools, skills grouped by setting, example path filled in", async
   assert.throws(() => parseOptions({ dataDirectory: "rel" }), /absolute/)
   const h = await host()
   assert.deepEqual([...h.tools.keys()].sort(), ["library_catalog", "library_read", "library_search"])
-  assert.deepEqual(h.skills.map(s => s.id).sort(), ["datasets", "diagrams", "experiment-design", "field-methods", "gnuplot", "gpu-kernels", "ml-data", "ml-deploy", "ml-qat", "ml-training", "ml-tuning", "stats-inference"])
+  assert.deepEqual(h.skills.map(s => s.id).sort(), ["datasets", "diagrams", "experiment-design", "field-methods", "gnuplot", "gpu-kernels", "ml-data", "ml-deploy", "ml-metrics", "ml-qat", "ml-training", "ml-tuning", "stats-inference"])
   assert.match(h.skills.find(s => s.id === "gnuplot")!.content, /examples are in: .*examples\/gnuplot/)
   assert.match(await h.system(), /library_search/)
   assert.equal(await h.system({ read: {} }), "", "no hint for agents without the library tools")

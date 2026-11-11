@@ -1475,6 +1475,276 @@
       ],
       "status": "current",
       "useFor": "GPTQ weight PTQ"
+    },
+    {
+      "id": "arxiv-2008-08115",
+      "title": "TIDE: A General Toolbox for Identifying Object Detection Errors",
+      "authors": "D. Bolya et al.",
+      "year": 2020,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2008.08115",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "detection error types and their dAP"
+    },
+    {
+      "id": "arxiv-1405-0312",
+      "title": "Microsoft COCO: Common Objects in Context",
+      "authors": "T.-Y. Lin et al.",
+      "year": 2014,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1405.0312",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "COCO dataset and evaluation"
+    },
+    {
+      "id": "arxiv-1908-03195",
+      "title": "LVIS: A Dataset for Large Vocabulary Instance Segmentation",
+      "authors": "A. Gupta et al.",
+      "year": 2019,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1908.03195",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "long-tail detection evaluation"
+    },
+    {
+      "id": "arxiv-1811-00982",
+      "title": "The Open Images Dataset V4",
+      "authors": "A. Kuznetsova et al.",
+      "year": 2018,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1811.00982",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "Open Images detection evaluation"
+    },
+    {
+      "id": "arxiv-1807-01696",
+      "title": "Localization Recall Precision (LRP): A New Performance Metric for Object Detection",
+      "authors": "K. Oksuz et al.",
+      "year": 2018,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1807.01696",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "LRP metric and optimal thresholds"
+    },
+    {
+      "id": "arxiv-1801-00868",
+      "title": "Panoptic Segmentation",
+      "authors": "A. Kirillov et al.",
+      "year": 2018,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1801.00868",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "panoptic quality PQ"
+    },
+    {
+      "id": "arxiv-2103-16562",
+      "title": "Boundary IoU: Improving Object-Centric Image Segmentation Evaluation",
+      "authors": "B. Cheng et al.",
+      "year": 2021,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2103.16562",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "boundary-sensitive segmentation metric"
+    },
+    {
+      "id": "arxiv-2009-07736",
+      "title": "HOTA: A Higher Order Metric for Evaluating Multi-Object Tracking",
+      "authors": "J. Luiten et al.",
+      "year": 2020,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2009.07736",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "tracking metric HOTA"
+    },
+    {
+      "id": "arxiv-1903-11027",
+      "title": "nuScenes: A multimodal dataset for autonomous driving",
+      "authors": "H. Caesar et al.",
+      "year": 2019,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1903.11027",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "NDS 3D detection metric"
+    },
+    {
+      "id": "arxiv-1706-04599",
+      "title": "On Calibration of Modern Neural Networks",
+      "authors": "C. Guo et al.",
+      "year": 2017,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1706.04599",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "ECE, temperature scaling"
+    },
+    {
+      "id": "arxiv-1706-08500",
+      "title": "GANs Trained by a Two Time-Scale Update Rule Converge to a Local Nash Equilibrium",
+      "authors": "M. Heusel et al.",
+      "year": 2017,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1706.08500",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "FID"
+    },
+    {
+      "id": "arxiv-1801-01401",
+      "title": "Demystifying MMD GANs",
+      "authors": "M. Bińkowski et al.",
+      "year": 2018,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1801.01401",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "KID"
+    },
+    {
+      "id": "arxiv-1904-09675",
+      "title": "BERTScore: Evaluating Text Generation with BERT",
+      "authors": "T. Zhang et al.",
+      "year": 2019,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1904.09675",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "BERTScore"
+    },
+    {
+      "id": "arxiv-2104-08718",
+      "title": "CLIPScore: A Reference-free Evaluation Metric for Image Captioning",
+      "authors": "J. Hessel et al.",
+      "year": 2021,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2104.08718",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "CLIPScore"
+    },
+    {
+      "id": "arxiv-2107-03374",
+      "title": "Evaluating Large Language Models Trained on Code",
+      "authors": "M. Chen et al.",
+      "year": 2021,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2107.03374",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "pass@k unbiased estimator"
+    },
+    {
+      "id": "arxiv-2003-08505",
+      "title": "A Metric Learning Reality Check",
+      "authors": "K. Musgrave et al.",
+      "year": 2020,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2003.08505",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "metric learning evaluation, MAP@R"
+    },
+    {
+      "id": "arxiv-2206-01653",
+      "title": "Metrics reloaded: Recommendations for image analysis validation",
+      "authors": "L. Maier-Hein et al.",
+      "year": 2022,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2206.01653",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "choosing metrics for image analysis"
+    },
+    {
+      "id": "arxiv-2302-01790",
+      "title": "Understanding metric-related pitfalls in image analysis validation",
+      "authors": "A. Reinke et al.",
+      "year": 2023,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2302.01790",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml",
+        "evaluation"
+      ],
+      "status": "current",
+      "useFor": "metric pitfalls"
     }
   ]
 }

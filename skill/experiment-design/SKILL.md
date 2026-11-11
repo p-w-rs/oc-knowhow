@@ -83,5 +83,5 @@ Write this plan into the repo (e.g. `experiments/<name>/PLAN.md`) and log it as 
 ## Common pitfalls to check for (Lones; Kapoor & Narayanan)
 
 Comparing against untuned or outdated baselines; reporting the best seed; selecting the test metric after seeing
-results; test-set reuse; leakage; ignoring class imbalance (use metrics that fit: balanced accuracy, PR-AUC, calibration);
+results; test-set reuse; leakage; ignoring class imbalance (ml-metrics skill; use metrics that fit: balanced accuracy, PR-AUC, calibration);
 claiming generality from one dataset; mistaking statistical for practical significance; not reporting compute.
