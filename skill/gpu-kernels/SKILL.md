@@ -16,6 +16,8 @@ description: Write, port and tune custom GPU kernels for NVIDIA and AMD — Trit
   `python/tutorials/`), https://docs.nvidia.com/cuda/, https://rocm.docs.amd.com/ (HIP, HIPIFY, rocprofiler-sdk),
   https://docs.pytorch.org/docs/stable/library.html. As of November 2026: Triton 3.9 (NVIDIA cc 8.0+, AMD ROCm 6.2+),
   CUDA 13.5, ROCm 10.1, PyTorch 2.15, CUTLASS 4.8 (`nvidia-cutlass-dsl` for the Python DSL). Verify; don't trust these.
+  conda-forge lags: `pytorch-gpu` 2.14.1 comes with `triton` 3.7.1 (Nov 2026); everything below was run with that on
+  Blackwell sm_120 (RTX PRO 6000), including tensor descriptors.
 
 ## Which tool
 
@@ -86,7 +88,7 @@ for shape in [(1, 1), (127, 33), (4096, 4096), (3, 70001)]:                  # i
         x = torch.randn(shape, device="cuda", dtype=dtype); y = torch.randn_like(x)
         ref = (x.double() + y.double()).to(dtype)                            # high-precision reference
         torch.testing.assert_close(add(x, y), ref)                           # default rtol/atol chosen per dtype
-ms = triton.testing.do_bench(lambda: add(x, y))                             # ms, mean by default; warm-up + reps
+ms = triton.testing.do_bench(lambda: add(x, y), return_mode="median")       # ms (default "mean"); warm-up + reps
 gbps = 3 * x.numel() * x.element_size() / (ms * 1e-3) / 1e9                 # bytes read + written / time
 ```
 - Test against a reference (PyTorch eager in FP32/FP64) over random inputs, shapes (non-multiples of the block size,
@@ -97,11 +99,21 @@ gbps = 3 * x.numel() * x.element_size() / (ms * 1e-3) / 1e9                 # by
   kernels where launch overhead dominates) or CUDA events with warm-up and `torch.cuda.synchronize()`. Report GB/s or
   TFLOP/s against the device's peak (roofline: is it memory- or compute-bound?), and compare to the baseline it
   replaces (eager and `torch.compile`), over the shapes that occur in the model. Log results to MLflow (ml-training).
+- Roofline before tuning (Austin et al., *How to Scale Your Model* Ch. 1, library `scaling-book-roofline`; GPU
+  specifics Ch. 12): arithmetic intensity = FLOPs ÷ bytes moved to/from HBM; the device's critical intensity = peak
+  FLOP/s ÷ HBM bandwidth (hundreds of FLOPs/byte for bf16 tensor cores). Below it the kernel is memory-bound: judge it
+  by GB/s vs peak bandwidth and win by moving fewer bytes (fusion, lower precision, reuse in shared memory). Above it,
+  judge TFLOP/s vs peak. Elementwise/reductions (≈ 0.5 FLOP/byte for a bf16 dot product) are always memory-bound; a
+  bf16 matmul's intensity ≈ the smaller dimension (tokens) when that is small, and with tiles bm×bn ≈ bm·bn/(bm+bn).
+  Take peak numbers from the datasheet for the exact SKU and precision (dense, not "with sparsity").
 - Profile: NVIDIA `nsys profile -t cuda,nvtx -o r …` → `nsys stats -r cuda_gpu_kern_sum --format csv r.nsys-rep`;
   per-kernel `ncu --set full -k regex:name -c 1 -o k …` → `ncu -i k.ncu-rep --csv --page details` (memory throughput,
   achieved occupancy, warp stall reasons, bank conflicts). AMD `rocprofv3 --kernel-trace --stats -d out -- python …`
   (default output is a rocpd SQLite database; `rocpd convert -i <file>_results.db --output-format csv`, or pass
   `--output-format csv` directly), deeper analysis with `rocprof-compute profile/analyze`. Read results as text; don't guess.
+  `nsys`/`ncu` are not in conda-forge PyTorch envs; use the system CUDA install (`/usr/local/cuda/bin`). `ncu` fails
+  with `ERR_NVGPUCTRPERM` unless the admin enabled counters for users (`NVreg_RestrictProfilingToAdminUsers=0`);
+  `nsys` works without it. On a shared GPU, use medians/quantiles: means are skewed by other jobs.
 
 ## Environments (Pixi)
 

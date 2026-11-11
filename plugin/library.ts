@@ -210,7 +210,8 @@ export class Library {
   readonly sourcesDir: string
   readonly mirror: string
   #index?: IndexFile
-  #stored = new Map<string, Stored>()
+  #stored = new Map<string, { item: Stored; stamp: number }>()
+  #indexStamp?: number
   progress?: Progress
   #running?: Promise<SyncReport>
 
@@ -229,11 +230,14 @@ export class Library {
     for (const name of await readdir(this.sourcesDir)) {
       if (!name.endsWith(".json")) continue
       const key = name.slice(0, -5)
-      let item = this.#stored.get(key)
-      if (!item) {
-        try { item = JSON.parse(await readFile(join(this.sourcesDir, name), "utf8")) as Stored; this.#stored.set(key, item) } catch { continue }
+      // Another process (the library CLI, another window) may have re-indexed a source: reread when the file changed.
+      const stamp = await stat(join(this.sourcesDir, name)).then(info => info.mtimeMs, () => undefined)
+      if (stamp === undefined) continue
+      let cached = this.#stored.get(key)
+      if (!cached || cached.stamp !== stamp) {
+        try { cached = { item: JSON.parse(await readFile(join(this.sourcesDir, name), "utf8")) as Stored, stamp }; this.#stored.set(key, cached) } catch { continue }
       }
-      result.push(item)
+      result.push(cached.item)
     }
     return result
   }
@@ -259,7 +263,7 @@ export class Library {
       signal?.throwIfAborted()
       this.progress = { step: `Reading ${source.title}`, done: done++, total: wanted.size }
       const fingerprint = await this.#fingerprint(source)
-      const old = this.#stored.get(key)
+      const old = this.#stored.get(key)?.item
       if (old && old.fingerprint === fingerprint) {
         if (JSON.stringify(old.meta) !== JSON.stringify(metaOf(source))) { old.meta = metaOf(source); await this.#save(key, old) }
         report.unchanged++
@@ -286,7 +290,8 @@ export class Library {
     const temporary = `${this.#file(key)}.${process.pid}.tmp`
     await writeFile(temporary, JSON.stringify(stored))
     await rename(temporary, this.#file(key))
-    this.#stored.set(key, stored)
+    const stamp = await stat(this.#file(key)).then(info => info.mtimeMs, () => -1)
+    this.#stored.set(key, { item: stored, stamp })
   }
 
   async #fingerprint(source: SourceInput): Promise<string> {
@@ -348,12 +353,17 @@ export class Library {
     await writeFile(temporary, JSON.stringify(index))
     await rename(temporary, join(this.root, "index.json"))
     this.#index = index
+    this.#indexStamp = await stat(join(this.root, "index.json")).then(info => info.mtimeMs, () => undefined)
   }
 
   async #loadIndex(): Promise<IndexFile> {
-    if (this.#index) return this.#index
-    try { this.#index = JSON.parse(await readFile(join(this.root, "index.json"), "utf8")) as IndexFile }
+    // Reload when index.json was rewritten (by this process or another, e.g. `pixi run library download`).
+    const file = join(this.root, "index.json")
+    const stamp = await stat(file).then(info => info.mtimeMs, () => undefined)
+    if (this.#index && stamp === this.#indexStamp) return this.#index
+    try { this.#index = JSON.parse(await readFile(file, "utf8")) as IndexFile }
     catch { this.#index = { version: 1, units: [], lengths: [], postings: {} } }
+    this.#indexStamp = stamp
     return this.#index
   }
 
@@ -446,7 +456,7 @@ export class Library {
     return item.units.flatMap(unit => { const label = unit.heading.join(" › "); if (seen.has(label)) return []; seen.add(label); return [{ ref: `${key}#${unit.id}`, where: where(unit) }] })
   }
 
-  async clear(): Promise<void> { await rm(this.root, { recursive: true, force: true }); this.#index = undefined; this.#stored.clear() }
+  async clear(): Promise<void> { await rm(this.root, { recursive: true, force: true }); this.#index = undefined; this.#indexStamp = undefined; this.#stored.clear() }
 }
 
 export interface SyncReport { added: number; updated: number; removed: number; unchanged: number; failed: { source: string; error: string }[] }

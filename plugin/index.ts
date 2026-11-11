@@ -99,7 +99,7 @@ export function createPlugin(): Plugin.Plugin {
               })
               const missing = (await referenceStates(downloads, references)).filter(state => state.state === "missing").length
               return text([
-                `Reference library: ${stored.length} sources${field ? ` in ${field}` : ""}. Status: current = use as written; dated = sound in parts, check the note and the skills; superseded = see the newer source. Cite as <title>, <where>.`,
+                `Reference library: ${field ? `${lines.length} of ${stored.length} sources in ${field}${lines.length ? "" : " (none; fields in use: " + [...new Set(stored.flatMap(item => item.meta.fields ?? []))].sort().join(", ") + ")"}` : `${stored.length} sources`}. Status: current = use as written; dated = sound in parts, check the note and the skills; superseded = see the newer source. Cite as <title>, <where>.`,
                 ...(missing ? [`${missing} free references are not downloaded yet (the user can click Download in Settings → Know-how).`] : []),
                 ...lines,
               ].join("\n"))

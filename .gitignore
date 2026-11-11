@@ -5,3 +5,4 @@ dist/
 .opencode/
 .DS_Store
 .deps.lock
+fit.log

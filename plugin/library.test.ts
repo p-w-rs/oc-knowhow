@@ -86,6 +86,20 @@ test("a folder becomes sources described by its catalog; search cites, flags dat
   assert.equal((await library.search("bootstrap resample", { mode: "keyword" })).hits.length, 0)
 })
 
+test("a sync by another process (CLI, other window) is seen by a running library without a restart", async () => {
+  const folder = await libraryFolder()
+  const sources = await folderSources(folder)
+  const data = await scratch()
+  const running = new Library(data, async () => undefined)
+  await running.sync([{ id: "mine", name: "Mine", sources: sources.slice(1) }])
+  assert.equal((await running.search("bootstrap resample", { mode: "keyword" })).hits.length, 0)
+  await new Promise(r => setTimeout(r, 20))
+  await new Library(data, async () => undefined).sync([{ id: "mine", name: "Mine", sources }])
+  const hits = (await running.search("bootstrap resample", { mode: "keyword" })).hits
+  assert.equal(hits[0]?.source, "notes")
+  assert.equal((await running.stored()).length, 3)
+})
+
 test("meaning-based search with the real engine (when downloaded via pixi run setup-search)", async t => {
   const runtime = await new Backend(join(import.meta.dirname, "..", ".local", "search")).runtime()
   if (!runtime) return t.skip("search engine not downloaded (pixi run setup-search)")

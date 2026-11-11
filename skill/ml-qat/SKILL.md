@@ -99,8 +99,13 @@ import modelopt.torch.quantization as mtq
 model = mtq.quantize(model, mtq.INT8_DEFAULT_CFG, forward_loop)   # inserts quantizers + calibrates (PTQ)
 mtq.print_quant_summary(model)
 train(model, ...)                                                  # QAT: fine-tune; quantizer states typically frozen
-torch.onnx.export(model, sample, "model_qat.onnx")                # Q/DQ nodes → TensorRT (strongly typed, see ml-deploy)
+torch.onnx.export(model, sample, "model_qat.onnx", dynamo=False)  # Q/DQ nodes → TensorRT (strongly typed, see ml-deploy)
 ```
+
+`dynamo=False` is needed: with ModelOpt 0.48 and PyTorch 2.14 the default `dynamo=True` export of a quantized model
+fails in `torch.export` (`GuardOnDataDependentSymNode` inside ModelOpt's quantizer); the TorchScript exporter writes
+QuantizeLinear/DequantizeLinear pairs (tested on ResNet-18; TensorRT 10.16 builds it with `--stronglyTyped`). Tested
+on CPU (macOS): `mtq.quantize` with `INT8_DEFAULT_CFG` works without a GPU.
 
 Save/restore quantizer state with `mto.save` / `mto.restore`. `mtq.fold_weight` only speeds up fake-quant evaluation;
 after it the model can no longer be exported to ONNX or trained with QAT (ModelOpt docs).

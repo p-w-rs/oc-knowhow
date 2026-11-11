@@ -4,7 +4,7 @@ import { homedir } from "node:os"
 import { isAbsolute, join } from "node:path"
 
 export const PLUGIN_ID = "oc-knowhow"
-export const VERSION = "1.4.0"
+export const VERSION = "1.4.1"
 
 export const dataDirectory = (configured?: string) => configured ?? join(process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"), PLUGIN_ID)
 

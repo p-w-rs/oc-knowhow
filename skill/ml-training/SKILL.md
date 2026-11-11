@@ -1,6 +1,6 @@
 ---
 name: ml-training
-description: Train and evaluate models reproducibly on NVIDIA and AMD GPUs — Pixi environments for CUDA and ROCm PyTorch, MLflow 3 experiment tracking (runs, params, metrics, system metrics, LoggedModels, comparing runs), long runs on remote GPU machines, checkpoints and exact resume, determinism, mixed precision and TF32, torch.compile (modes, graph breaks, recompiles), gradient accumulation, activation checkpointing, OOM debugging, profiling, DDP/FSDP2 with DCP checkpoints and NCCL debugging, and planning for deployment from the start. Load before setting up training, running experiments or comparing results.
+description: Train and evaluate models reproducibly on NVIDIA and AMD GPUs — Pixi environments for CUDA and ROCm PyTorch, MLflow 3 experiment tracking (runs, params, metrics, system metrics, LoggedModels, comparing runs), long runs on remote GPU machines, checkpoints and exact resume, determinism, mixed precision and TF32, torch.compile (modes, graph breaks, recompiles), gradient accumulation, activation checkpointing, OOM debugging, profiling, estimating compute, memory, time and the right parallelism before scaling (rooflines, 6·N·tokens, communication bounds), DDP/FSDP2 with DCP checkpoints and NCCL debugging, and planning for deployment from the start. Load before setting up training, running experiments or comparing results.
 ---
 
 # Training and experiments
@@ -11,6 +11,12 @@ description: Train and evaluate models reproducibly on NVIDIA and AMD GPUs — P
   - `cuda`: conda-forge `pytorch-gpu` + `cuda-version = "13.*"` on a platform that declares CUDA
     (`platforms = [{ platform = "linux-64", cuda = "13.0" }]`; `[system-requirements]` is the deprecated form).
     conda-forge can lag PyPI by a minor (Nov 2026: 2.14.1 vs 2.15.0); else use the `whl/cu13x` index as below.
+    For `torch.compile` on GPU also add `cuda-cudart-dev` (Triton compiles a helper against `cuda.h`; without it:
+    `fatal error: cuda.h: No such file or directory`) and a C compiler (system `gcc`, or conda-forge `c-compiler`).
+    Blackwell (sm_100/sm_120) is in the conda-forge builds (`torch.cuda.get_arch_list()`). Builds for a newer CUDA
+    minor than the driver (e.g. `cuda134` on a 13.0 driver) run PyTorch fine, but code that JIT-compiles PTX can fail
+    with "the provided PTX was compiled with an unsupported toolchain" (seen with TorchCodec NVDEC); then pin
+    `cuda-version` to the driver's minor (older PyTorch) or update the driver.
   - `rocm`: PyTorch ROCm wheels via PyPI (`torch = { version = "…", index = "https://download.pytorch.org/whl/rocm<ver>" }`);
     conda-forge has no ROCm PyTorch. Check https://pytorch.org/get-started for the current index names.
 - Verify on the machine before blaming code: `pixi run -e cuda python -c "import torch; print(torch.__version__,
@@ -35,8 +41,12 @@ Use MLflow for every training, evaluation, export and benchmark run (MLflow 3.x;
       for step, metrics in train():
           mlflow.log_metrics(metrics, step=step)
       mlflow.log_artifact("config.yaml")
-      info = mlflow.pytorch.log_model(model, name="model", step=step)   # MLflow 3: LoggedModel, load via info.model_uri
+      info = mlflow.pytorch.log_model(model, name="model", step=step,  # MLflow 3: LoggedModel, load via info.model_uri
+                                      input_example=x_example.cpu().numpy())   # needed for the default "pt2" format
   ```
+  MLflow 3.18 (outside Databricks) saves PyTorch models as `serialization_format="pt2"` (torch.export) by default: it needs
+  `input_example` (a NumPy array works; a CUDA tensor fails the signature check) and loads back as a `GraphModule`.
+  For models that don't export, or when you need the `nn.Module` back, pass `serialization_format="pickle"`.
   System metrics need `psutil` + `nvidia-ml-py` (NVIDIA) or `pyrsmi` (AMD). `mlflow.pytorch.autolog()` targets
   Lightning; plain loops log manually. MLflow 3: `name=` (`artifact_path=` deprecated), load via `info.model_uri`
   (`models:/<model_id>`). Log only from rank 0.
@@ -71,7 +81,8 @@ Use MLflow for every training, evaluation, export and benchmark run (MLflow 3.x;
 - **Mixed precision**: `torch.autocast("cuda", dtype=torch.bfloat16)` on Ampere+/MI200+ (no scaler); FP16 with
   `torch.amp.GradScaler("cuda")` (`scale(loss).backward()`, `unscale_(opt)` before clipping, `step`, `update`).
 - **TF32** on NVIDIA: `torch.backends.fp32_precision = "tf32"` (≥ 2.9 API; per backend e.g.
-  `torch.backends.cuda.matmul.fp32_precision`); the old `allow_tf32` flags are being deprecated; don't mix them.
+  `torch.backends.cuda.matmul.fp32_precision`); the old `allow_tf32` flags are being deprecated; don't mix them:
+  even *reading* `torch.backends.cuda.matmul.allow_tf32` after setting the new API raises a RuntimeError (2.14).
 - **torch.compile** (`model.compile(mode=…)`): `default`, `reduce-overhead` (CUDA graphs; static shapes),
   `max-autotune` (slow compile, GEMM autotuning). Diagnose with `TORCH_LOGS=graph_breaks,recompiles,guards`; after
   `recompile_limit` (default 8) a frame falls back to eager. Avoid recompiles: `drop_last=True`, bucketed shapes,
@@ -89,11 +100,44 @@ Use MLflow for every training, evaluation, export and benchmark run (MLflow 3.x;
   `PYTORCH_ALLOC_CONF=expandable_segments:True` (alias `PYTORCH_CUDA_ALLOC_CONF`) for fragmentation with varying
   shapes. Then: bf16, activation checkpointing, smaller micro-batch + accumulation, FSDP2.
 
+## Estimate before you scale
+
+Back-of-envelope numbers before renting GPUs or picking a parallelism scheme. Source: Austin et al., *How to Scale
+Your Model* (library: `scaling-book-*`; Ch. 1 rooflines, Ch. 4 Transformer math, Ch. 5 training, Ch. 12 GPUs). It
+is written for TPUs/JAX; the reasoning carries over, but take GPU numbers from Ch. 12 or your own measurements.
+
+- **Time bounds**: `T_math = FLOPs / FLOP/s`, `T_comms = bytes / bandwidth` (HBM or interconnect); the step takes
+  between `max(T_math, T_comms)` (perfect overlap) and their sum. Compute-bound when the operation's arithmetic
+  intensity (FLOPs per byte moved) exceeds the hardware's (peak FLOP/s ÷ bandwidth) (Ch. 1).
+- **Training compute**: ≈ `6 · params · tokens` FLOPs for Transformers at ordinary context lengths (Ch. 4 takeaways).
+  Wall time ≈ that ÷ (GPUs × peak bf16 FLOP/s × MFU); H100/B200 usually reach only ~80–85% of peak even in matmuls
+  (Ch. 1), and whole-model MFU is lower; measure yours (tokens/s × 6 · params ÷ peak) and use it for the estimate.
+- **Memory**: parameters + optimizer state are ≈ 10 bytes per parameter with Adam (Ch. 5 takeaways), plus
+  activations (activation checkpointing trades them for recompute). That is why plain DDP stops at a few billion
+  parameters per GPU and FSDP2 shards them. KV cache for inference ≈ `2 · S · L · K · H` elements per sequence
+  (S tokens, L layers, K KV heads, H head dim; Ch. 4).
+- **Matmuls** are compute-bound only when the per-GPU **token** batch is large: intensity ≈ B tokens, critical value
+  ~240 on TPU v5e and ~300 on GPUs (Ch. 1). Small per-GPU batches waste the tensor cores regardless of code quality.
+- **Which parallelism** (Ch. 5, Ch. 12 "TLDR of LLM scaling on GPUs"):
+  - DDP/FSDP become communication-bound when tokens per GPU < `C / W` (FLOP/s ÷ collective bandwidth): ≈ 2,200–2,500
+    tokens per GPU on H100/B200 with NVLink/InfiniBand; for MoE multiply by E/k; with only 2-way data parallelism the
+    requirement roughly halves. Small dense models: FSDP if the batch allows.
+  - Tensor parallelism stays compute-bound to about 8-way and only inside one NVLink domain; larger dense models: TP
+    within 1–2 nodes + pipeline across nodes + data parallel. Never use TP over PCIe-only GPUs.
+- **Plug in your own interconnect.** Gradient all-reduce time ≈ `grad_bytes · 2(n−1)/n ÷ busbw` (NCCL's bus
+  bandwidth); compare it with the backward-pass compute time. Measure busbw with a 256 MiB `all_reduce` loop (or
+  nccl-tests). Example: 2× RTX 4090 over PCIe without NVLink measured 8.3 GB/s (Nov 2026), so a 1B-parameter bf16
+  model's 2 GB gradient all-reduce takes ≈ 0.24 s per step; small steps there are communication-bound, so use bigger
+  per-GPU batches or gradient accumulation (`no_sync`) before adding GPUs.
+- Check the estimate against a profile (step time, MFU, NCCL time in `torch.profiler`); a large gap means overheads,
+  poor overlap or a data-loading bottleneck (ml-data), not a wrong formula.
+
 ## Distributed (multi-GPU / multi-node)
 
 - Launch with `torchrun --nproc-per-node=N train.py` (multi-node: `--nnodes`, `--rdzv-backend=c10d
   --rdzv-endpoint=host:port`); in the script `torch.cuda.set_device(local_rank)` and
-  `dist.init_process_group("nccl", device_id=torch.device("cuda", local_rank))` (RCCL on AMD uses the same "nccl").
+  `dist.init_process_group("cpu:gloo,cuda:nccl", device_id=torch.device("cuda", local_rank))` (RCCL on AMD uses the
+  same "nccl"; plain `"nccl"` works too, but `dcp.async_save` then fails with "A CPU backend must be enabled").
 - **DDP** first when the model + optimizer fit on one GPU. **FSDP2** (`torch.distributed.fsdp.fully_shard`) when they
   don't: apply `fully_shard(block, mp_policy=MixedPrecisionPolicy(param_dtype=torch.bfloat16, reduce_dtype=torch.float32))`
   to each transformer block, then to the root model; create the optimizer after sharding. FSDP1
@@ -103,8 +147,12 @@ Use MLflow for every training, evaluation, export and benchmark run (MLflow 3.x;
   checkpoint_id=dir)` (`dcp.async_save` overlaps with training); `dcp.load` then `set_state_dict`. Reshards on load.
 - Every rank must see different data and the same number of steps (ml-data §2), or collectives hang.
 - **Hangs/timeouts**: `NCCL_DEBUG=INFO`, `TORCH_DISTRIBUTED_DEBUG=DETAIL` (collective mismatch checks),
-  `TORCH_NCCL_DUMP_ON_TIMEOUT=1` + `TORCH_NCCL_TRACE_BUFFER_SIZE=2000` (flight recorder dump), wrong NIC →
+  flight recorder: `TORCH_FR_BUFFER_SIZE=2000` (older name `TORCH_NCCL_TRACE_BUFFER_SIZE`, now deprecated) +
+  `TORCH_NCCL_DUMP_ON_TIMEOUT=1` + `TORCH_FR_DUMP_TEMP_FILE=/path/fr/rank_` (one file per rank), then
+  `python -m torch.distributed.flight_recorder.fr_trace /path/fr -p rank_`, which names the collective and the missing
+  ranks. Lower `init_process_group(timeout=timedelta(...))` to make a hang fail fast while debugging. Wrong NIC →
   `NCCL_SOCKET_IFNAME`. Usual causes: a rank skipping a collective (conditional code, uneven data), DDP unused params.
+  Verified Nov 2026 on 2× RTX 4090 (PyTorch 2.14.1, NCCL 2.32): DDP, FSDP2 (+compile), DCP save/async/load/reshard.
 
 ## Plan for deployment while training
 

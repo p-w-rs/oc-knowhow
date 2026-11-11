@@ -13,7 +13,7 @@ A pipeline is fast enough when the GPU never waits. Check before changing anythi
   ```python
   import time, torch
   def loader_rate(loader, warmup=20, n=200):              # data only: no model, but include the H2D copy
-      it = iter(loader)
+      it = (b for _ in iter(int, 1) for b in loader)      # cycles epochs: no StopIteration if warmup+n > len(loader)
       for _ in range(warmup): next(it)
       torch.cuda.synchronize(); t = time.perf_counter()
       for _ in range(n): b = next(it); x = b[0].cuda(non_blocking=True)   # adapt to the batch structure
@@ -90,6 +90,10 @@ Rules that matter more than the format:
   pipelines with their own prefetching; `nvidia-dali-cuda130`), or decode-free formats (FFCV RAW, pre-decoded uint8
   arrays). Then augment in batches on the GPU (`torchvision.transforms.v2` works on CUDA tensors).
 - Workers then only read bytes; decode in the main process (CUDA in forked workers fails) or use DALI.
+- Verified Nov 2026 on Blackwell sm_120 (conda-forge `torchcodec` 0.17): `decode_jpeg(list, device="cuda")` returns a
+  list of CUDA uint8 tensors matching CPU decode. `VideoDecoder(device="cuda")` failed with "the provided PTX was
+  compiled with an unsupported toolchain" when the build's CUDA (`cuda134`) was newer than the driver (13.0); it
+  worked with `cuda-version = "13.0.*"`. The error is sticky: later CUDA calls in that process fail too.
 - Transfer **uint8** to the GPU and normalize/convert there (`x.cuda(non_blocking=True).float().div_(255)`): 4× less
   host→device traffic than float32.
 - Costs GPU time and memory; worth it only when the GPU would otherwise wait. Re-measure after.

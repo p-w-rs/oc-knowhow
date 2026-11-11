@@ -45,8 +45,9 @@ pixi exec --spec poppler -- pdftocairo -png -r 200 -singlefile figure.pdf figure
 
 - **D2 SVG → PNG trap**: `rsvg-convert` ignores the WOFF fonts D2 embeds and substitutes a wider font, so edge labels
   run over the gaps D2 cut into lines. `d2-png.sh` passes the system sans-serif TTF (`fc-match`) to
-  `d2 --font-regular/--font-italic/--font-bold`, renames the font family in the SVG, then runs `rsvg-convert`.
-  Browsers show D2's SVG correctly as is.
+  `d2 --font-regular/--font-italic/--font-bold`, renames the font family in the SVG, then runs `rsvg-convert`. If that
+  font is .ttc/.otf (d2 reads only .ttf) it falls back to DejaVu Sans (in the Pixi env via `fonts-conda-ecosystem`, so
+  minimal Linux works), Verdana or Arial; `D2_SANS="Font Name"` picks another. Browsers show D2's SVG correctly as is.
 - **Mermaid SVG trap**: Mermaid puts labels in `<foreignObject>` HTML, which `rsvg-convert` (and many converters,
   LaTeX, Inkscape-less pipelines) drop: boxes without text. Render PNG/PDF with `mmdc` itself (`-o x.pdf` works).
   The CLI uses Puppeteer's headless Chrome (downloaded once to `~/.cache/puppeteer`); conda-forge `mermaid-cli` has
