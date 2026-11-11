@@ -705,6 +705,776 @@
       ],
       "status": "current",
       "useFor": "Bayesian models in Python, diagnostics with ArviZ"
+    },
+    {
+      "id": "arxiv-1506-01186",
+      "title": "Cyclical Learning Rates for Training Neural Networks",
+      "authors": "L. N. Smith",
+      "year": 2015,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1506.01186",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "CLR, triangular policy, LR range test, stepsize 2-10 epochs"
+    },
+    {
+      "id": "arxiv-1708-07120",
+      "title": "Super-Convergence: Very Fast Training of Neural Networks Using Large Learning Rates",
+      "authors": "L. N. Smith, N. Topin",
+      "year": 2017,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1708.07120",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "1cycle, large learning rates as regularization, super-convergence"
+    },
+    {
+      "id": "arxiv-1803-09820",
+      "title": "A disciplined approach to neural network hyper-parameters: Part 1",
+      "authors": "L. N. Smith",
+      "year": 2018,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1803.09820",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "tuning LR, batch size, momentum, weight decay; balancing regularization; reading validation loss"
+    },
+    {
+      "id": "arxiv-1702-04283",
+      "title": "Exploring loss function topology with cyclical learning rates",
+      "authors": "L. N. Smith, N. Topin",
+      "year": 2017,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1702.04283",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "loss-landscape observations with CLR"
+    },
+    {
+      "id": "arxiv-2202-08835",
+      "title": "General Cyclical Training of Neural Networks",
+      "authors": "L. N. Smith",
+      "year": 2022,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2202.08835",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "cyclical weight decay, batch size, temperature, augmentation (position paper)"
+    },
+    {
+      "id": "arxiv-1704-01568",
+      "title": "Best Practices for Applying Deep Learning to Novel Applications",
+      "authors": "L. N. Smith",
+      "year": 2017,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1704.01568",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "phased project plan for new deep learning applications"
+    },
+    {
+      "id": "arxiv-1711-00489",
+      "title": "Don't Decay the Learning Rate, Increase the Batch Size",
+      "authors": "S. L. Smith et al.",
+      "year": 2017,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1711.00489",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "batch size vs learning rate decay equivalence"
+    },
+    {
+      "id": "arxiv-1706-02677",
+      "title": "Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour",
+      "authors": "P. Goyal et al.",
+      "year": 2017,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1706.02677",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "linear LR scaling with batch size, warmup"
+    },
+    {
+      "id": "arxiv-1811-03600",
+      "title": "Measuring the Effects of Data Parallelism on Neural Network Training",
+      "authors": "C. Shallue et al.",
+      "year": 2018,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1811.03600",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "critical batch size, diminishing returns of larger batches"
+    },
+    {
+      "id": "arxiv-1812-06162",
+      "title": "An Empirical Model of Large-Batch Training",
+      "authors": "S. McCandlish et al.",
+      "year": 2018,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1812.06162",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "gradient noise scale to choose batch size"
+    },
+    {
+      "id": "arxiv-1609-04836",
+      "title": "On Large-Batch Training for Deep Learning: Generalization Gap and Sharp Minima",
+      "authors": "N. S. Keskar et al.",
+      "year": 2016,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1609.04836",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "large batches and sharp minima"
+    },
+    {
+      "id": "arxiv-1904-00962",
+      "title": "Large Batch Optimization for Deep Learning: Training BERT in 76 minutes",
+      "authors": "Y. You et al.",
+      "year": 2019,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1904.00962",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "LAMB optimizer for very large batches"
+    },
+    {
+      "id": "arxiv-1711-05101",
+      "title": "Decoupled Weight Decay Regularization",
+      "authors": "I. Loshchilov, F. Hutter",
+      "year": 2017,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1711.05101",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "AdamW, decoupled weight decay"
+    },
+    {
+      "id": "arxiv-1608-03983",
+      "title": "SGDR: Stochastic Gradient Descent with Warm Restarts",
+      "authors": "I. Loshchilov, F. Hutter",
+      "year": 2016,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1608.03983",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "cosine annealing with restarts"
+    },
+    {
+      "id": "arxiv-2405-15682",
+      "title": "The Road Less Scheduled",
+      "authors": "A. Defazio et al.",
+      "year": 2024,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2405.15682",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "Schedule-Free SGD/AdamW"
+    },
+    {
+      "id": "arxiv-2502-16982",
+      "title": "Muon is Scalable for LLM Training",
+      "authors": "J. Liu et al.",
+      "year": 2025,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2502.16982",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "Muon at scale, weight decay and RMS matching to reuse AdamW hyper-parameters"
+    },
+    {
+      "id": "arxiv-2509-02046",
+      "title": "Fantastic Pretraining Optimizers and Where to Find Them",
+      "authors": "K. Wen et al.",
+      "year": 2025,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2509.02046",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "fair optimizer benchmark: speedups over tuned AdamW (1.1-1.4x), Muon vs SOAP by data ratio"
+    },
+    {
+      "id": "arxiv-2409-11321",
+      "title": "SOAP: Improving and Stabilizing Shampoo using Adam",
+      "authors": "N. Vyas et al.",
+      "year": 2024,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2409.11321",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "SOAP optimizer"
+    },
+    {
+      "id": "arxiv-2302-06675",
+      "title": "Symbolic Discovery of Optimization Algorithms",
+      "authors": "X. Chen et al.",
+      "year": 2023,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2302.06675",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "Lion optimizer"
+    },
+    {
+      "id": "arxiv-2610-21555",
+      "title": "When Does Muon Actually Win? A Paired Data-, Time-, and Tuning-Budget Benchmark",
+      "authors": "M. Akhtar et al.",
+      "year": 2026,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2610.21555",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "Muon vs AdamW at equal data, time and tuning budgets"
+    },
+    {
+      "id": "arxiv-2611-03633",
+      "title": "Pretraining Data Scale Reverses the Muon-AdamW Fine-Tuning Gap",
+      "authors": "C. Li et al.",
+      "year": 2026,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2611.03633",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "fine-tuning after Muon vs AdamW pretraining"
+    },
+    {
+      "id": "arxiv-2604-15297",
+      "title": "Benchmarking Optimizers for MLPs in Tabular Deep Learning",
+      "authors": "Y. Gorishniy et al.",
+      "year": 2026,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2604.15297",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "Muon and EMA for tabular MLPs"
+    },
+    {
+      "id": "arxiv-2609-23055",
+      "title": "Optimizers for Diffusion Models: A Controlled Benchmark",
+      "authors": "A. Bolatov et al.",
+      "year": 2026,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2609.23055",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "optimizer choice for diffusion models"
+    },
+    {
+      "id": "arxiv-2203-03466",
+      "title": "Tensor Programs V: Tuning Large Neural Networks via Zero-Shot Hyperparameter Transfer",
+      "authors": "G. Yang et al.",
+      "year": 2022,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2203.03466",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "muP hyper-parameter transfer across widths"
+    },
+    {
+      "id": "arxiv-1502-03167",
+      "title": "Batch Normalization",
+      "authors": "S. Ioffe, C. Szegedy",
+      "year": 2015,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1502.03167",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "BatchNorm"
+    },
+    {
+      "id": "arxiv-1607-06450",
+      "title": "Layer Normalization",
+      "authors": "J. L. Ba et al.",
+      "year": 2016,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1607.06450",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "LayerNorm"
+    },
+    {
+      "id": "arxiv-1910-07467",
+      "title": "Root Mean Square Layer Normalization",
+      "authors": "B. Zhang, R. Sennrich",
+      "year": 2019,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1910.07467",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "RMSNorm"
+    },
+    {
+      "id": "arxiv-1803-08494",
+      "title": "Group Normalization",
+      "authors": "Y. Wu, K. He",
+      "year": 2018,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1803.08494",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "GroupNorm for small batches"
+    },
+    {
+      "id": "arxiv-2002-04745",
+      "title": "On Layer Normalization in the Transformer Architecture",
+      "authors": "R. Xiong et al.",
+      "year": 2020,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2002.04745",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "pre-LN vs post-LN"
+    },
+    {
+      "id": "arxiv-1602-07868",
+      "title": "Weight Normalization",
+      "authors": "T. Salimans, D. P. Kingma",
+      "year": 2016,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1602.07868",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "weight normalization"
+    },
+    {
+      "id": "arxiv-2102-06171",
+      "title": "High-Performance Large-Scale Image Recognition Without Normalization",
+      "authors": "A. Brock et al.",
+      "year": 2021,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2102.06171",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "NFNets, adaptive gradient clipping"
+    },
+    {
+      "id": "arxiv-1706-02515",
+      "title": "Self-Normalizing Neural Networks",
+      "authors": "G. Klambauer et al.",
+      "year": 2017,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1706.02515",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "SELU, AlphaDropout, LeCun-normal init"
+    },
+    {
+      "id": "arxiv-1512-00567",
+      "title": "Rethinking the Inception Architecture for Computer Vision",
+      "authors": "C. Szegedy et al.",
+      "year": 2015,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1512.00567",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "label smoothing"
+    },
+    {
+      "id": "arxiv-1710-09412",
+      "title": "mixup: Beyond Empirical Risk Minimization",
+      "authors": "H. Zhang et al.",
+      "year": 2017,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1710.09412",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "mixup"
+    },
+    {
+      "id": "arxiv-1905-04899",
+      "title": "CutMix",
+      "authors": "S. Yun et al.",
+      "year": 2019,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1905.04899",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "CutMix"
+    },
+    {
+      "id": "arxiv-1909-13719",
+      "title": "RandAugment",
+      "authors": "E. D. Cubuk et al.",
+      "year": 2019,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1909.13719",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "RandAugment"
+    },
+    {
+      "id": "arxiv-1603-09382",
+      "title": "Deep Networks with Stochastic Depth",
+      "authors": "G. Huang et al.",
+      "year": 2016,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1603.09382",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "stochastic depth / DropPath"
+    },
+    {
+      "id": "arxiv-2010-01412",
+      "title": "Sharpness-Aware Minimization for Efficiently Improving Generalization",
+      "authors": "P. Foret et al.",
+      "year": 2020,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2010.01412",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "SAM"
+    },
+    {
+      "id": "arxiv-2009-11162",
+      "title": "Implicit Gradient Regularization",
+      "authors": "D. G. T. Barrett, B. Dherin",
+      "year": 2020,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2009.11162",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "implicit regularization of gradient descent"
+    },
+    {
+      "id": "arxiv-2101-12176",
+      "title": "On the Origin of Implicit Regularization in Stochastic Gradient Descent",
+      "authors": "S. L. Smith et al.",
+      "year": 2021,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2101.12176",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "implicit regularization of SGD, LR/batch ratio"
+    },
+    {
+      "id": "arxiv-1810-01075",
+      "title": "Implicit Self-Regularization in Deep Neural Networks: Evidence from Random Matrix Theory",
+      "authors": "C. H. Martin, M. W. Mahoney",
+      "year": 2018,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1810.01075",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "heavy-tailed self-regularization, weight-matrix spectra as a diagnostic"
+    },
+    {
+      "id": "arxiv-2603-17160",
+      "title": "Self-Regularized Learning Methods",
+      "authors": "M. Schölpple et al.",
+      "year": 2026,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2603.17160",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "learning-theory framework for self-regularization"
+    },
+    {
+      "id": "arxiv-1803-05407",
+      "title": "Averaging Weights Leads to Wider Optima and Better Generalization",
+      "authors": "P. Izmailov et al.",
+      "year": 2018,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1803.05407",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "SWA"
+    },
+    {
+      "id": "arxiv-2312-02696",
+      "title": "Analyzing and Improving the Training Dynamics of Diffusion Models",
+      "authors": "T. Karras et al.",
+      "year": 2023,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2312.02696",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "post-hoc EMA length"
+    },
+    {
+      "id": "arxiv-2306-12517",
+      "title": "FFCV: Accelerating Training by Removing Data Bottlenecks",
+      "authors": "G. Leclerc et al.",
+      "year": 2023,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2306.12517",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "data loading bottlenecks, FFCV format"
+    },
+    {
+      "id": "arxiv-2007-00072",
+      "title": "Data Movement Is All You Need: A Case Study on Optimizing Transformers",
+      "authors": "A. Ivanov et al.",
+      "year": 2020,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2007.00072",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "data movement as the bottleneck in training"
+    },
+    {
+      "id": "arxiv-1712-05877",
+      "title": "Quantization and Training of Neural Networks for Efficient Integer-Arithmetic-Only Inference",
+      "authors": "B. Jacob et al.",
+      "year": 2017,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1712.05877",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "integer quantization and QAT with BN folding"
+    },
+    {
+      "id": "arxiv-1308-3432",
+      "title": "Estimating or Propagating Gradients Through Stochastic Neurons for Conditional Computation",
+      "authors": "Y. Bengio et al.",
+      "year": 2013,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1308.3432",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "straight-through estimator"
+    },
+    {
+      "id": "arxiv-1902-08153",
+      "title": "Learned Step Size Quantization",
+      "authors": "S. K. Esser et al.",
+      "year": 2019,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/1902.08153",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "LSQ learned quantizer scales"
+    },
+    {
+      "id": "arxiv-2004-09602",
+      "title": "Integer Quantization for Deep Learning Inference: Principles and Empirical Evaluation",
+      "authors": "H. Wu et al.",
+      "year": 2020,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2004.09602",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "NVIDIA INT8 PTQ/QAT recipe"
+    },
+    {
+      "id": "arxiv-2106-08295",
+      "title": "A White Paper on Neural Network Quantization",
+      "authors": "M. Nagel et al.",
+      "year": 2021,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2106.08295",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "practical PTQ and QAT guide"
+    },
+    {
+      "id": "arxiv-2305-17888",
+      "title": "LLM-QAT: Data-Free Quantization Aware Training for Large Language Models",
+      "authors": "Z. Liu et al.",
+      "year": 2023,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2305.17888",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "QAT for LLMs, KV-cache quantization"
+    },
+    {
+      "id": "arxiv-2407-11062",
+      "title": "EfficientQAT: Efficient Quantization-Aware Training for Large Language Models",
+      "authors": "M. Chen et al.",
+      "year": 2024,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2407.11062",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "block-wise then end-to-end QAT for LLMs"
+    },
+    {
+      "id": "arxiv-2502-02631",
+      "title": "ParetoQ: Improving Scaling Laws in Extremely Low-bit LLM Quantization",
+      "authors": "Z. Liu et al.",
+      "year": 2025,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2502.02631",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "1-4 bit QAT comparison"
+    },
+    {
+      "id": "arxiv-2210-17323",
+      "title": "GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers",
+      "authors": "E. Frantar et al.",
+      "year": 2022,
+      "kind": "pdf",
+      "url": "https://arxiv.org/pdf/2210.17323",
+      "license": "arXiv (free to read)",
+      "fields": [
+        "ml"
+      ],
+      "status": "current",
+      "useFor": "GPTQ weight PTQ"
     }
   ]
 }

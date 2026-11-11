@@ -7,14 +7,14 @@ task needs them; nothing changes how OpenCode itself works. macOS and Linux; Ope
 |---|---|---|
 | Data science | `stats-inference`, `experiment-design`, `datasets`, `field-methods` | Choosing and running analyses the current way (effect sizes with intervals, p-values as evidence not verdicts, resampling, mixed models, multiple comparisons, Bayesian options, what is outdated); ablations and whether model A really beats B (seeds, budgets, paired comparisons, aggregate metrics); building, splitting, auditing and documenting datasets; what differs between fields and their reporting standards. Python through Pixi. |
 | Figures and diagrams | `gnuplot`, `diagrams` | gnuplot 6 for 2D/3D, interactive and animated plots and more than three dimensions, with 12 tested example scripts; D2, Graphviz, Mermaid and TikZ for diagrams, with examples. Agents render and look at the result before showing it. |
-| Machine learning | `ml-training`, `ml-deploy`, `gpu-kernels` | CUDA/ROCm environments and MLflow; TensorRT 11 and Jetson deployment, custom TensorRT plugins, parallel branches; Triton and CUDA/HIP kernels. |
+| Machine learning | `ml-training`, `ml-data`, `ml-tuning`, `ml-qat`, `ml-deploy`, `gpu-kernels` | CUDA/ROCm environments and MLflow; data formats and loaders that keep GPUs busy (CPU-only, GPU, CPU+GPU); Leslie Smith's LR range test, 1cycle and regularization balance, batch size, optimizers (AdamW, SGD, Muon, SOAP; what fair benchmarks show), normalization, regularization, EMA/SWA, self-normalizing nets and implicit self-regularization; quantization-aware training (torchao, ModelOpt); TensorRT 11 and Jetson deployment; Triton and CUDA/HIP kernels. |
 | Reference library | tools `library_catalog`, `library_search`, `library_read` | Ground truth from books, papers, manuals and standards, with page or section citations and each source's status (current, dated, superseded). |
 
 ## The reference library
 
 Everything stays on your computer; nothing is included in the plugin, its releases or exports.
 
-- **Free references**: the plugin lists about 50 freely available sources (statistics, causal inference, ML evaluation,
+- **Free references**: the plugin lists about 100 freely available sources (statistics, causal inference, ML training, optimizers, quantization and evaluation,
   dataset documentation, reporting guidelines, measurement uncertainty, visualization, the gnuplot 6 manual and its
   official demo scripts, TikZ). **Settings → Know-how → Download free references** fetches them to your computer and
   indexes them; sources a publisher only offers online are listed as links. See `references.json`.

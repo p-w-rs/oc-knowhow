@@ -113,7 +113,7 @@ try {
   assert.ok(stdout.includes("OC_KNOWHOW_SMOKE_COMPLETE"), "run completed")
   assert.doesNotMatch(stderr, /\[oc-knowhow\] (disabled|reload failed|skills not registered|library update failed)/, "no plugin warnings")
   for (const name of ["library_catalog", "library_search", "library_read"]) assert.ok(toolNames.includes(name), `${name} offered`)
-  for (const skill of ["stats-inference", "experiment-design", "gnuplot", "diagrams", "ml-deploy"]) assert.ok(requests[0].includes(skill), `skill ${skill} offered`)
+  for (const skill of ["stats-inference", "experiment-design", "gnuplot", "diagrams", "ml-deploy", "ml-data", "ml-tuning", "ml-qat"]) assert.ok(requests[0].includes(skill), `skill ${skill} offered`)
   const all = toolResults.join("\n")
   assert.match(all, /ablations \[Smoke library; unknown; 1 sections\]/, "catalog lists the folder")
   assert.match(all, /old-text \[Smoke library; dated/, "catalog shows status from catalog.json")

@@ -64,10 +64,13 @@ Use MLflow for every training, evaluation, export and benchmark run (MLflow 3.x;
   optimizers (`fused=True`), `pin_memory=True` and enough `num_workers`, `non_blocking=True` copies.
 - Find the bottleneck before optimizing: data loading vs GPU (GPU util in system metrics, the PyTorch profiler,
   `nsys`). Multi-GPU: `torchrun` + DDP first; FSDP2 when the model doesn't fit.
+- Related skills: **ml-data** (formats, sharding, loaders that keep the GPU busy), **ml-tuning** (LR range test,
+  1cycle, batch size, optimizers incl. Muon, normalization, regularization, EMA), **ml-qat** (quantization-aware
+  training).
 
 ## Plan for deployment while training
 
 If the model will run on an edge device (see ml-deploy): pick ops that TensorRT supports and fuses, keep shapes static
 or bounded, avoid data-dependent control flow, use sizes that are multiples of 8/16, export to ONNX early and often
-(a CI check), and consider QAT/sparsity-aware fine-tuning if INT8/FP8 PTQ loses accuracy. Evaluate the exported/
+(a CI check), and consider QAT/sparsity-aware fine-tuning if INT8/FP8 PTQ loses accuracy (ml-qat skill). Evaluate the exported/
 quantized model's accuracy, not only the PyTorch model's.

@@ -4,13 +4,13 @@ import { homedir } from "node:os"
 import { isAbsolute, join } from "node:path"
 
 export const PLUGIN_ID = "oc-knowhow"
-export const VERSION = "1.1.0"
+export const VERSION = "1.2.0"
 
 export const dataDirectory = (configured?: string) => configured ?? join(process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"), PLUGIN_ID)
 
 /** Skill groups the user can turn off. */
 export const GROUPS = {
-  ml: ["ml-training", "ml-deploy", "gpu-kernels"],
+  ml: ["ml-training", "ml-data", "ml-tuning", "ml-qat", "ml-deploy", "gpu-kernels"],
   datascience: ["stats-inference", "experiment-design", "datasets", "field-methods"],
   figures: ["gnuplot", "diagrams"],
 } as const

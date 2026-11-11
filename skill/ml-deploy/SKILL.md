@@ -158,7 +158,7 @@ Go through all of it; report what you checked, what you changed and the measured
    ones; static shapes where possible; avoid data-dependent shapes and Python control flow in the forward pass;
    prefer channels and sizes that are multiples of 8/16/32 (tensor cores); fuse normalization into conv/linear at
    export (BN folding).
-3. **Training-aware**: QAT or sparsity-aware training (2:4 structured sparsity, `--sparsity=enable`) if PTQ or dense
+3. **Training-aware** (ml-qat skill): QAT or sparsity-aware training (2:4 structured sparsity, `--sparsity=enable`) if PTQ or dense
    is not enough; distillation into a smaller student; pruning (ModelOpt).
 4. **Export**: clean graph (constant folding, no redundant casts/reshapes, no unused outputs), newest opset,
    verify numerics (Polygraphy).
