@@ -22,7 +22,7 @@ function KnowhowView(props: { ctx: Context }) {
     const timer = setInterval(() => { if (state()?.progress || state()?.search.installing || !state()) void refresh() }, 1500)
     onCleanup(() => clearInterval(timer))
   })
-  const toggle = (key: "ml" | "datascience" | "figures" | "library", title: string, text: string) => (
+  const toggle = (key: "ml" | "datascience" | "figures" | "odin" | "robotics" | "clibs" | "library", title: string, text: string) => (
     <div style={card}>
       <ctx.ui.Switch label={title} checked={state()!.settings[key]} onChange={value => void act(() => api().update({ [key]: value }))} />
       <span style={muted}>{text}</span>
@@ -40,6 +40,9 @@ function KnowhowView(props: { ctx: Context }) {
         {toggle("datascience", "Data science", "Skills: stats-inference (choosing and running tests, effect sizes and intervals, multiple comparisons, Bayesian options, what is outdated), experiment-design (ablations, whether model A really beats B, seeds and budgets, reporting standards) and datasets (collection, labeling, leakage, splits, documentation, versioning).")}
         {toggle("figures", "Figures and diagrams", "Skills: gnuplot (2D/3D, interactive and animated plots, more than three dimensions, publication output, worked examples) and diagrams (D2, Graphviz, Mermaid, TikZ). Agents render and look at the result before showing you.")}
         {toggle("ml", "Machine learning", "Skills: ml-training (CUDA/ROCm Pixi environments, MLflow), ml-data (formats and loaders that keep GPUs busy), ml-tuning (Smith's LR range test and 1cycle, batch size, optimizers incl. Muon, normalization, regularization, EMA), ml-qat (quantization-aware training), ml-metrics (COCO AP/AR, TIDE, and metrics for every task), ml-deploy (TensorRT 11 and Jetson) and gpu-kernels (Triton, CUDA/HIP).")}
+        {toggle("odin", "Odin", "Skills: odin (language, core and vendor packages, the compiler at expert level, C interop, testing), odin-performance (allocators and memory strategies, data-oriented design, SIMD, profiling) and odin-targets (embedded/freestanding and WebAssembly). The library holds the Odin core and vendor source to search.")}
+        {toggle("robotics", "Robotics data", "Skills: zenoh (pub/sub, queries, routers, shared memory, zenoh-pico), zenoh-ros2 (bridging Zenoh and ROS 2: rmw_zenoh, zenoh-bridge-ros2dds) and mcap (recording and reading logs, Foxglove).")}
+        {toggle("clibs", "C libraries", "Skills: c-platform (SDL3, sokol, clay) and c-networking (ENet, librg, zpl), from C and from Odin. The library holds their source to search.")}
         <div style={card}>
           <ctx.ui.Switch label="Reference library" checked={current().settings.library} onChange={value => void act(() => api().update({ library: value }))} />
           <span style={muted}>Agents search books, papers, manuals and standards for ground truth, with page citations (library_catalog, library_search, library_read). Everything stays on this computer: free references are downloaded here, and your own folders are indexed here, never shared or exported.</span>
@@ -84,7 +87,7 @@ export default Plugin.define({
   setup(ctx) {
     ctx.add(SettingsPage, {
       id: "knowhow", title: "Know-how", icon: "graduation-cap",
-      entries: [{ id: "knowhow", title: "Know-how", description: "Skills and the reference library for data science, figures, diagrams and machine learning", keywords: "oc-knowhow statistics data science experiment ablation datasets gnuplot plots figures diagrams d2 graphviz tikz library references tensorrt" }],
+      entries: [{ id: "knowhow", title: "Know-how", description: "Skills and the reference library for data science, figures, diagrams, machine learning, Odin, robotics data (Zenoh, ROS 2, MCAP) and C libraries", keywords: "oc-knowhow odin zenoh ros2 mcap sdl3 sokol enet statistics data science experiment ablation datasets gnuplot plots figures diagrams d2 graphviz tikz library references tensorrt" }],
       render: () => (
         <ctx.ui.SettingsLayout title="Know-how" description="Expert know-how agents load when a task needs it, and a private reference library they can cite.">
           <KnowhowView ctx={ctx} />

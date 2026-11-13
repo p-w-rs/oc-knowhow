@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Backend } from "./backend.js"
-import { chunk, cleanPages, excerpt, folderSources, gnuplotDocUnits, htmlToText, Library, markdownUnits, pdfUnits } from "./library.js"
+import { chunk, cleanPages, codeUnits, excerpt, folderSources, gnuplotDocUnits, htmlToText, Library, markdownUnits, pdfUnits, sourceTreeUnits } from "./library.js"
 import { pdf } from "./testdocs.js"
 
 const dirs: string[] = []
@@ -108,4 +108,81 @@ test("meaning-based search with the real engine (when downloaded via pixi run se
   const result = await library.search("how should I compare two models trained with the same random seeds")
   assert.notEqual(result.mode, "keyword")
   assert.equal(result.hits[0]!.title, "Welch notes")
+})
+
+test("source code splits into declarations with their comments (Odin and C)", () => {
+  const odin = `package mem
+
+import "base:runtime"
+
+// Arena is a linear allocator.
+// Free individual allocations is not possible.
+Arena :: struct {
+\tdata:   []byte,
+\toffset: int,
+}
+
+@(require_results)
+arena_init :: proc(a: ^Arena, data: []byte) {
+\ta.data = data
+\tif true { a.offset = 0 }
+}
+
+DEFAULT_ALIGNMENT :: 2*align_of(rawptr)
+`
+  const units = codeUnits("core/mem/allocators.odin", odin, 160)
+  const all = units.map(u => u.text).join("\n")
+  assert.match(units[0]!.heading[0]!, /core\/mem\/allocators\.odin/)
+  const arena = units.find(u => /Arena \(line/.test(u.heading[1]!) || /^Arena/.test(u.heading[1]!))!
+  assert.ok(arena, JSON.stringify(units.map(u => u.heading)))
+  assert.match(arena.text, /linear allocator/)
+  assert.match(all, /arena_init :: proc/)
+  assert.ok(units.some(u => /arena_init/.test(u.heading[1]!)))
+  assert.ok(units.some(u => /DEFAULT_ALIGNMENT/.test(u.heading[1]!)))
+
+  const c = `#include <stdint.h>
+/* Creates a host. */
+ENetHost * enet_host_create (const ENetAddress * address, size_t peerCount)
+{
+    if (peerCount > 4095) return NULL;
+    for (int i = 0; i < 2; i++) { }
+    return host;
+}
+
+typedef struct _ENetPeer {
+    int state;
+} ENetPeer;
+
+#define ENET_VERSION 0x10305
+static int counter = 0;
+`
+  const cu = codeUnits("enet.h", c, 100)
+  const names = cu.map(u => u.heading[1]).join(" | ")
+  assert.match(names, /enet_host_create/)
+  assert.match(names, /_ENetPeer/)
+  assert.match(names, /ENET_VERSION/)
+  assert.match(cu.find(u => /enet_host_create/.test(u.heading[1]!))!.text, /Creates a host/)
+  assert.doesNotMatch(names, /\bif\b|\bfor\b/)
+})
+
+test("a source tree keeps only the listed paths and indexes code and READMEs", async () => {
+  const root = await scratch()
+  await mkdir(join(root, "core", "mem"), { recursive: true })
+  await mkdir(join(root, "tests"), { recursive: true })
+  await writeFile(join(root, "README.md"), "# Odin\n\nA language for high performance, built for the joy of programming and data-oriented design.\n")
+  await writeFile(join(root, "core", "mem", "a.odin"), "package mem\n\n// Pool allocator.\nPool :: struct { x: int }\n")
+  await writeFile(join(root, "core", "mem", "image.png"), "x")
+  await writeFile(join(root, "tests", "t.odin"), "package t\nnot_wanted :: proc() {}\n")
+  const units = await sourceTreeUnits(root, { paths: ["core", "README.md"] })
+  const text = units.map(u => `${u.heading.join(" > ")}\n${u.text}`).join("\n")
+  assert.match(text, /core\/mem\/a\.odin/)
+  assert.match(text, /Pool allocator/)
+  assert.match(text, /README\.md/)
+  assert.doesNotMatch(text, /not_wanted|image\.png/)
+  const lib = new Library(await scratch(), async () => undefined)
+  await lib.sync([{ id: "references", name: "Free", sources: [{ id: "odin-src", title: "Odin source", kind: "source-tree", path: root, version: "dev-2026-11", paths: ["core"] }] }])
+  const hit = (await lib.search("pool allocator", { mode: "keyword" })).hits[0]!
+  assert.equal(hit.source, "odin-src")
+  assert.match(hit.where, /core\/mem\/a\.odin/)
+  assert.equal((await lib.stored())[0]!.meta.edition, "dev-2026-11")
 })

@@ -156,12 +156,15 @@ export function createPlugin(): Plugin.Plugin {
         // ---- Skills ----
         let skillReady = false
         try {
-          const skills = await Promise.all((Object.entries(GROUPS) as [Group, readonly string[]][]).flatMap(([group, ids]) => ids.map(async id => {
+          // Each skill loads on its own: one missing or unreadable file must not hide the others.
+          const skills = (await Promise.all((Object.entries(GROUPS) as [Group, readonly string[]][]).flatMap(([group, ids]) => ids.map(async id => {
             const path = join(SKILLS, id, "SKILL.md")
             const examples = id === "gnuplot" ? "gnuplot" : id === "diagrams" ? "diagrams" : undefined
-            const content = (await readFile(path, "utf8")) + (examples ? `\n\n---\nOn this computer the examples are in: ${join(EXAMPLES, examples)}\n` : "")
-            return { group, id, path, content, description: /^description:\s*(.+)$/m.exec(content)?.[1] ?? id }
-          })))
+            try {
+              const content = (await readFile(path, "utf8")) + (examples ? `\n\n---\nOn this computer the examples are in: ${join(EXAMPLES, examples)}\n` : "")
+              return [{ group, id, path, content, description: /^description:\s*(.+)$/m.exec(content)?.[1] ?? id }]
+            } catch (error) { warn(`skill ${id} not registered`, error); return [] }
+          })))).flat()
           registrations.push(await ctx.skill.transform(editor => {
             const current = settings.current()
             for (const skill of skills) if (current[skill.group]) editor.add({ id: skill.id as never, name: skill.id as never, description: skill.description, path: skill.path as never, content: skill.content })

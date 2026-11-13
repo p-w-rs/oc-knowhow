@@ -1,7 +1,7 @@
 [workspace]
 name = "oc-knowhow"
-version = "1.4.1"
-description = "Expert know-how and a private reference library for OpenCode agents"
+version = "1.5.0"
+description = "Expert know-how for OpenCode agents: data science, figures, ML, Odin, Zenoh/ROS 2/MCAP, C libraries; a private reference library (books, papers, source code) with citations"
 channels = ["conda-forge"]
 platforms = ["osx-arm64", "osx-64", "linux-64", "linux-aarch64"]
 

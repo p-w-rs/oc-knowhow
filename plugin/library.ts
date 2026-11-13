@@ -27,7 +27,7 @@ export interface SourceMeta {
   readonly url?: string
 }
 /** A source to index: a file on disk (or a gnuplot source tree), or a link that is only listed. */
-export interface SourceInput extends SourceMeta { readonly kind: "file" | "link" | "gnuplot-source"; readonly path?: string }
+export interface SourceInput extends SourceMeta { readonly kind: "file" | "link" | "gnuplot-source" | "source-tree"; readonly path?: string; readonly version?: string; readonly paths?: readonly string[]; readonly exclude?: readonly string[]; readonly extensions?: readonly string[] }
 export interface Unit { readonly id: number; readonly heading: readonly string[]; readonly pages?: readonly [number, number]; readonly text: string }
 interface Stored { version: 1; library: string; meta: SourceMeta; kind: string; path?: string; fingerprint: string; units: Unit[]; error?: string; indexedAt: string }
 
@@ -186,6 +186,122 @@ export function demoUnit(name: string, script: string): Omit<Unit, "id"> {
   return { heading: ["gnuplot demo", name], text: `gnuplot demo script ${name}\n\n${script.slice(0, UNIT_CHARS * 2)}` }
 }
 
+// ------------------------------------------------------------------ source code (Odin, C, C++ headers)
+
+export const CODE_FILES = new Set([".odin", ".c", ".h", ".cc", ".cpp", ".hpp", ".inl", ".rs", ".zig", ".py", ".pyi", ".js", ".ts", ".json5"])
+const CODE_UNIT_CHARS = 2500
+
+/** Top-level declarations of one source file with the comments above them, in groups of about UNIT_CHARS. */
+export function codeUnits(relpath: string, source: string, size = CODE_UNIT_CHARS): Omit<Unit, "id">[] {
+  const lines = source.replace(/\r\n?/g, "\n").split("\n")
+  const ext = extname(relpath).toLowerCase()
+  const odin = ext === ".odin"
+  // A declaration starts at depth 0 on a line that is not a comment/blank/closing brace; it owns the comment lines just above it.
+  const starts: { line: number; name: string }[] = []
+  let depth = 0, inBlock = false, transparent = 0
+  const nameOf = (line: string): string | undefined => {
+    if (odin) {
+      const m = /^\s*(?:@\([^)]*\)\s*)*([A-Za-z_][\w]*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:[:=]/.exec(line) ?? /^\s*(foreign\s+import\s+\w+|when\b|foreign\s+\w+)/.exec(line)
+      return m?.[1]?.trim()
+    }
+    if (/^\s*#\s*define\s+(\w+)/.test(line)) return /^\s*#\s*define\s+(\w+)/.exec(line)![1]
+    if (/^\s*#/.test(line)) return undefined
+    const t = /^\s*(?:typedef\s+)?(?:struct|union|enum|class)\s+(\w+)/.exec(line); if (t) return t[1]
+    const f = /([A-Za-z_]\w*)\s*\([^;]*$|([A-Za-z_]\w*)\s*\(.*\)\s*(?:const\s*)?[{;]?\s*$/.exec(line); if (f && !/^\s*(if|for|while|switch|return)\b/.test(line)) return f[1] ?? f[2]
+    const v = /([A-Za-z_]\w*)\s*(?:\[[^\]]*\])?\s*(?:=|;)/.exec(line); return v?.[1]
+  }
+  const commentOnly: boolean[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]!
+    let line = raw
+    if (inBlock) { const end = line.indexOf("*/"); if (end < 0) { commentOnly[i] = true; continue } line = line.slice(end + 2); inBlock = false; if (!line.trim()) { commentOnly[i] = true; continue } }
+    const code = line.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`[^`]*`/g, '""').replace(/\/\*.*?\*\//g, "")
+    const open = code.indexOf("/*")
+    const stripped = (open >= 0 ? code.slice(0, open) : code).replace(/\/\/.*$/, "")
+    if (open >= 0) inBlock = true
+    if (!stripped.trim() && raw.trim() && (open >= 0 || /^\s*\/\//.test(raw) || /\*\//.test(raw))) commentOnly[i] = true
+    if (!stripped.trim() && /^\s*(@\(|#\+)/.test(raw)) commentOnly[i] = true
+    if (depth === 0 && stripped.trim() && !/^\s*[})\]]/.test(stripped)) {
+      const name = nameOf(stripped)
+      if (name) starts.push({ line: i, name })
+    }
+    // extern "C" { … } and namespace blocks do not nest declarations.
+    if (depth === 0 && /^\s*(extern\s*""|namespace\b[^{(;]*)\s*\{\s*$/.test(stripped)) { transparent++; continue }
+    for (const ch of stripped) {
+      if (ch === "{" || ch === "(") depth++
+      else if (ch === "}" || ch === ")") { if (depth > 0) depth--; else if (ch === "}" && transparent > 0) transparent-- }
+    }
+  }
+  // Each declaration's span begins at its leading comment block.
+  const begin = (line: number) => { let j = line; while (j > 0 && (commentOnly[j - 1] || /^\s*@\(/.test(lines[j - 1]!))) j--; return j }
+  const decls = starts.map((start, k) => ({ name: start.name, line: start.line, from: begin(start.line), to: k + 1 < starts.length ? begin(starts[k + 1]!.line) : lines.length }))
+  if (!decls.length) return chunk(source, size).map(text => ({ heading: [relpath], text: `${relpath}\n\n${text}` }))
+  if (decls[0]!.from > 0) decls.unshift({ name: "(file header)", line: 0, from: 0, to: decls[0]!.from })
+  const units: Omit<Unit, "id">[] = []
+  let group: typeof decls = []
+  let length = 0
+  const flush = () => {
+    if (!group.length) return
+    const first = group[0]!, last = group.at(-1)!
+    const body = lines.slice(first.from, last.to).join("\n").replace(/\n{3,}/g, "\n\n").trim()
+    const names = group.map(d => d.name)
+    const label = names.length <= 4 ? names.join(", ") : `${names.slice(0, 3).join(", ")} … ${names.at(-1)}`
+    for (const [index, part] of chunk(body, size).entries()) {
+      // Inside foreign/struct/enum blocks the members carry the names people search for (e.g. CreateWindow).
+      const inner = [...new Set([...part.matchAll(odin ? /^[ \t]+([A-Za-z_]\w*)\s*::/gm : /^[ \t]{0,4}(?:[A-Z_][\w]*\s+)?(?:const\s+)?(?:struct\s+)?[A-Za-z_]\w*[\s*]+([A-Za-z_]\w*)\s*\([^;{]*\)\s*;/gm)].map(m => m[1]!))].filter(name => !names.includes(name))
+      const shown = inner.length ? `${label}: ${inner.slice(0, 3).join(", ")}${inner.length > 3 ? " …" : ""}` : label
+      units.push({ heading: [relpath, `${shown} (line ${first.line + 1})${index ? ` part ${index + 1}` : ""}`], text: `${relpath}:${first.line + 1} — ${[...names, ...inner].join(", ")}\n\n${part}` })
+    }
+    group = []; length = 0
+  }
+  for (const decl of decls) {
+    const span = lines.slice(decl.from, decl.to).join("\n").length
+    if (length && length + span > size) flush()
+    group.push(decl); length += span
+    if (length > size) flush()
+  }
+  flush()
+  return units
+}
+
+/** Every code file and README/Markdown under the kept paths of a source tree, as units headed by file and declaration. */
+export async function sourceTreeUnits(root: string, options: { paths?: readonly string[]; exclude?: readonly string[]; extensions?: readonly string[]; signal?: AbortSignal; maxFileBytes?: number } = {}): Promise<Omit<Unit, "id">[]> {
+  const units: Omit<Unit, "id">[] = []
+  const excluded = (rel: string) => (options.exclude ?? []).some(pattern => rel === pattern || rel.startsWith(`${pattern.replace(/\/$/, "")}/`)) || /(^|\/)(\.git|node_modules|build|\.pixi)(\/|$)/.test(rel)
+  const walk = async (dir: string, rel: string): Promise<void> => {
+    options.signal?.throwIfAborted()
+    for (const entry of (await readdir(dir, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
+      const childRel = rel ? `${rel}/${entry.name}` : entry.name
+      if (excluded(childRel)) continue
+      if (entry.isDirectory()) { await walk(join(dir, entry.name), childRel); continue }
+      if (!entry.isFile()) continue
+      const ext = extname(entry.name).toLowerCase()
+      const markdown = ext === ".md" || ext === ".markdown"
+      if (!CODE_FILES.has(ext) && !markdown) continue
+      if (!markdown && options.extensions?.length && !options.extensions.includes(ext)) continue
+      const info = await stat(join(dir, entry.name))
+      if (info.size > (options.maxFileBytes ?? 2 * 1024 * 1024)) continue
+      const text = await readFile(join(dir, entry.name), "utf8")
+      if (markdown) units.push(...markdownUnits(text).map(unit => ({ ...unit, heading: [childRel, ...unit.heading] })))
+      else units.push(...codeUnits(childRel, text))
+    }
+  }
+  const tops = options.paths?.length ? options.paths : [""]
+  for (const top of tops) {
+    const target = join(root, top)
+    const info = await stat(target).catch(() => undefined)
+    if (!info) continue
+    if (info.isDirectory()) await walk(target, top.replace(/\/$/, ""))
+    else if (info.isFile()) {
+      const ext = extname(top).toLowerCase()
+      const text = await readFile(target, "utf8")
+      if (ext === ".md" || ext === ".markdown") units.push(...markdownUnits(text).map(unit => ({ ...unit, heading: [top, ...unit.heading] })))
+      else if (CODE_FILES.has(ext)) units.push(...codeUnits(top, text))
+    }
+  }
+  return units
+}
+
 function notebookText(json: string): string {
   try {
     const notebook = JSON.parse(json) as { cells?: { cell_type: string; source: string | string[] }[] }
@@ -296,11 +412,12 @@ export class Library {
 
   async #fingerprint(source: SourceInput): Promise<string> {
     if (source.kind === "link" || !source.path) return `link:${source.url ?? ""}`
-    try { const info = await stat(source.path); return `${source.kind}:${info.size}:${Math.round(info.mtimeMs)}:v2` } catch { return "missing" }
+    try { const info = await stat(source.path); return `${source.kind}:${info.size}:${Math.round(info.mtimeMs)}:${source.version ?? ""}:${(source.paths ?? []).join(",")}:${(source.exclude ?? []).join(",")}:${(source.extensions ?? []).join(",")}:v2` } catch { return "missing" }
   }
 
   async #convert(source: SourceInput, signal?: AbortSignal): Promise<Omit<Unit, "id">[]> {
     const path = source.path!
+    if (source.kind === "source-tree") return sourceTreeUnits(path, { paths: source.paths, exclude: source.exclude, extensions: source.extensions, signal })
     if (source.kind === "gnuplot-source") {
       const units: Omit<Unit, "id">[] = []
       const demos = join(path, "demo")
@@ -462,8 +579,8 @@ export class Library {
 export interface SyncReport { added: number; updated: number; removed: number; unchanged: number; failed: { source: string; error: string }[] }
 
 const metaOf = (source: SourceInput): SourceMeta => {
-  const { kind: _, path: __, ...meta } = source
-  return meta
+  const { kind: _, path: __, paths: ___, exclude: ____, extensions: _____, version, ...meta } = source
+  return { ...meta, ...(version && !meta.edition && { edition: version }) }
 }
 export const where = (unit: Unit) => `${unit.heading.join(" › ") || "(start)"}${unit.pages ? `, p. ${unit.pages[0]}${unit.pages[1] !== unit.pages[0] ? `–${unit.pages[1]}` : ""}` : ""}`
 

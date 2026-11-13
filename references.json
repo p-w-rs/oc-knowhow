@@ -1358,7 +1358,10 @@
       "kind": "html",
       "url": "https://jax-ml.github.io/scaling-book/roofline/",
       "license": "MIT (github.com/jax-ml/scaling-book)",
-      "fields": ["ml", "gpu"],
+      "fields": [
+        "ml",
+        "gpu"
+      ],
       "status": "current",
       "useFor": "arithmetic intensity, compute- vs memory- vs communication-bound, time estimates for matmuls and collectives",
       "note": "Written for TPUs and JAX; the roofline reasoning applies to GPUs (hardware numbers: see the GPU chapter, scaling-book-gpus)."
@@ -1371,7 +1374,10 @@
       "kind": "html",
       "url": "https://jax-ml.github.io/scaling-book/sharding/",
       "license": "MIT (github.com/jax-ml/scaling-book)",
-      "fields": ["ml", "gpu"],
+      "fields": [
+        "ml",
+        "gpu"
+      ],
       "status": "current",
       "useFor": "sharding notation, AllGather/ReduceScatter/AllReduce/AllToAll costs, sharded matmul strategies",
       "note": "TPU ICI examples; the collective cost formulas carry over to NVLink/PCIe/InfiniBand with their bandwidths."
@@ -1384,7 +1390,9 @@
       "kind": "html",
       "url": "https://jax-ml.github.io/scaling-book/transformers/",
       "license": "MIT (github.com/jax-ml/scaling-book)",
-      "fields": ["ml"],
+      "fields": [
+        "ml"
+      ],
       "status": "current",
       "useFor": "parameter and FLOP counts of a Transformer (about 6·N·tokens for training), attention vs MLP FLOPs, KV cache size"
     },
@@ -1396,7 +1404,10 @@
       "kind": "html",
       "url": "https://jax-ml.github.io/scaling-book/training/",
       "license": "MIT (github.com/jax-ml/scaling-book)",
-      "fields": ["ml", "gpu"],
+      "fields": [
+        "ml",
+        "gpu"
+      ],
       "status": "current",
       "useFor": "choosing data parallelism, FSDP/ZeRO, tensor (Megatron) and pipeline parallelism; when each becomes communication-bound; per-device batch size limits",
       "note": "Derived for TPU meshes; for GPU node/NVLink-domain specifics read the GPU chapter (scaling-book-gpus)."
@@ -1409,7 +1420,9 @@
       "kind": "html",
       "url": "https://jax-ml.github.io/scaling-book/applied-training/",
       "license": "MIT (github.com/jax-ml/scaling-book)",
-      "fields": ["ml"],
+      "fields": [
+        "ml"
+      ],
       "status": "current",
       "useFor": "worked example: parameter count, FLOPs, memory, training time and sharding plan for a real model"
     },
@@ -1421,7 +1434,10 @@
       "kind": "html",
       "url": "https://jax-ml.github.io/scaling-book/inference/",
       "license": "MIT (github.com/jax-ml/scaling-book)",
-      "fields": ["ml", "deployment"],
+      "fields": [
+        "ml",
+        "deployment"
+      ],
       "status": "current",
       "useFor": "prefill vs decode, why decode is memory-bandwidth-bound, KV cache memory, batch size vs latency/throughput, disaggregated serving"
     },
@@ -1433,7 +1449,10 @@
       "kind": "html",
       "url": "https://jax-ml.github.io/scaling-book/applied-inference/",
       "license": "MIT (github.com/jax-ml/scaling-book)",
-      "fields": ["ml", "deployment"],
+      "fields": [
+        "ml",
+        "deployment"
+      ],
       "status": "current",
       "useFor": "worked example: serving memory, latency and cost estimates for a real model"
     },
@@ -1445,7 +1464,9 @@
       "kind": "html",
       "url": "https://jax-ml.github.io/scaling-book/profiling/",
       "license": "MIT (github.com/jax-ml/scaling-book)",
-      "fields": ["ml"],
+      "fields": [
+        "ml"
+      ],
       "status": "current",
       "useFor": "comparing a profile against roofline estimates; reading traces for communication vs compute",
       "note": "JAX/XLA/TensorBoard tooling; for PyTorch use torch.profiler and Nsight (ml-training, gpu-kernels)."
@@ -1458,7 +1479,10 @@
       "kind": "html",
       "url": "https://jax-ml.github.io/scaling-book/gpus/",
       "license": "MIT (github.com/jax-ml/scaling-book)",
-      "fields": ["ml", "gpu"],
+      "fields": [
+        "ml",
+        "gpu"
+      ],
       "status": "current",
       "useFor": "NVIDIA GPU rooflines (SMs, tensor cores, HBM, NVLink, NVSwitch, InfiniBand), collective costs within and across nodes, parallelism choices on GPU clusters"
     },
@@ -1470,7 +1494,9 @@
       "kind": "html",
       "url": "https://jax-ml.github.io/scaling-book/conclusion/",
       "license": "MIT (github.com/jax-ml/scaling-book)",
-      "fields": ["ml"],
+      "fields": [
+        "ml"
+      ],
       "status": "current",
       "useFor": "annotated further reading on scaling, parallelism and hardware"
     },
@@ -1482,7 +1508,9 @@
       "kind": "link",
       "url": "https://jax-ml.github.io/scaling-book/tpus/",
       "license": "MIT (github.com/jax-ml/scaling-book)",
-      "fields": ["ml"],
+      "fields": [
+        "ml"
+      ],
       "status": "current",
       "useFor": "TPU hardware and JAX sharding APIs (shard_map, collectives); only for TPU/JAX work",
       "note": "Chapter 10: https://jax-ml.github.io/scaling-book/jax-stuff/"
@@ -1882,6 +1910,688 @@
       ],
       "status": "current",
       "useFor": "metric pitfalls"
+    },
+    {
+      "id": "odin-source",
+      "title": "Odin core, base and vendor packages (source, dev-2026-11a)",
+      "authors": "Ginger Bill and Odin contributors",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/odin-lang/Odin/tar.gz/refs/tags/dev-2026-11a",
+      "version": "dev-2026-11a",
+      "paths": [
+        "core",
+        "base",
+        "vendor",
+        "examples",
+        "README.md",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".odin"
+      ],
+      "exclude": [
+        "core/rexcode",
+        "vendor/android",
+        "vendor/darwin",
+        "vendor/windows",
+        "vendor/directx",
+        "vendor/vulkan",
+        "core/sys/windows",
+        "core/sys/darwin",
+        "core/sys/linux",
+        "core/sys/freebsd",
+        "core/sys/netbsd",
+        "core/sys/openbsd",
+        "core/sys/haiku",
+        "core/sys/orca",
+        "vendor/x11",
+        "vendor/OpenGL",
+        "vendor/egl"
+      ],
+      "license": "zlib (LICENSE); some vendor/ folders carry their own licenses",
+      "fields": [
+        "odin",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "exact procedure signatures, types and doc comments of core:/base:/vendor: packages (allocators in core/mem, core/mem/virtual; runtime in base/runtime; vendor:sdl3, vendor:ENet, ...)",
+      "note": "Pinned to the validated release. The whole tree (incl. excluded OS bindings) is kept on disk for grep: library_catalog source=odin-source shows its sections; the files are under the oc-knowhow data folder references/odin-source/."
+    },
+    {
+      "id": "gingerbill-memory-001",
+      "title": "Memory Allocation Strategies, Part 1: Thinking about memory and allocation",
+      "authors": "Ginger Bill",
+      "year": 2019,
+      "kind": "link",
+      "url": "https://www.gingerbill.org/article/2019/02/01/memory-allocation-strategies-001/",
+      "license": "© Ginger Bill, all rights reserved (read online)",
+      "fields": [
+        "odin",
+        "memory"
+      ],
+      "status": "current",
+      "useFor": "allocator design and theory behind odin-performance"
+    },
+    {
+      "id": "gingerbill-memory-002",
+      "title": "Memory Allocation Strategies, Part 2: Linear/Arena allocators",
+      "authors": "Ginger Bill",
+      "year": 2019,
+      "kind": "link",
+      "url": "https://www.gingerbill.org/article/2019/02/08/memory-allocation-strategies-002/",
+      "license": "© Ginger Bill, all rights reserved (read online)",
+      "fields": [
+        "odin",
+        "memory"
+      ],
+      "status": "current",
+      "useFor": "allocator design and theory behind odin-performance"
+    },
+    {
+      "id": "gingerbill-memory-003",
+      "title": "Memory Allocation Strategies, Part 3: Stack allocators",
+      "authors": "Ginger Bill",
+      "year": 2019,
+      "kind": "link",
+      "url": "https://www.gingerbill.org/article/2019/02/15/memory-allocation-strategies-003/",
+      "license": "© Ginger Bill, all rights reserved (read online)",
+      "fields": [
+        "odin",
+        "memory"
+      ],
+      "status": "current",
+      "useFor": "allocator design and theory behind odin-performance"
+    },
+    {
+      "id": "gingerbill-memory-004",
+      "title": "Memory Allocation Strategies, Part 4: Pool allocators",
+      "authors": "Ginger Bill",
+      "year": 2019,
+      "kind": "link",
+      "url": "https://www.gingerbill.org/article/2019/02/16/memory-allocation-strategies-004/",
+      "license": "© Ginger Bill, all rights reserved (read online)",
+      "fields": [
+        "odin",
+        "memory"
+      ],
+      "status": "current",
+      "useFor": "allocator design and theory behind odin-performance"
+    },
+    {
+      "id": "gingerbill-memory-005",
+      "title": "Memory Allocation Strategies, Part 5: Free list allocators",
+      "authors": "Ginger Bill",
+      "year": 2021,
+      "kind": "link",
+      "url": "https://www.gingerbill.org/article/2021/11/30/memory-allocation-strategies-005/",
+      "license": "© Ginger Bill, all rights reserved (read online)",
+      "fields": [
+        "odin",
+        "memory"
+      ],
+      "status": "current",
+      "useFor": "allocator design and theory behind odin-performance"
+    },
+    {
+      "id": "gingerbill-memory-006",
+      "title": "Memory Allocation Strategies, Part 6: Buddy memory allocation",
+      "authors": "Ginger Bill",
+      "year": 2021,
+      "kind": "link",
+      "url": "https://www.gingerbill.org/article/2021/12/02/memory-allocation-strategies-006/",
+      "license": "© Ginger Bill, all rights reserved (read online)",
+      "fields": [
+        "odin",
+        "memory"
+      ],
+      "status": "current",
+      "useFor": "allocator design and theory behind odin-performance"
+    },
+    {
+      "id": "odin-overview",
+      "title": "Odin language overview",
+      "authors": "odin-lang.org",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://odin-lang.org/docs/overview/",
+      "license": "no open license stated (read online)",
+      "fields": [
+        "odin"
+      ],
+      "status": "current",
+      "useFor": "the language reference: declarations, types, procedures, control flow, attributes, directives"
+    },
+    {
+      "id": "odin-faq",
+      "title": "Odin FAQ",
+      "authors": "odin-lang.org",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://odin-lang.org/docs/faq/",
+      "license": "no open license stated (read online)",
+      "fields": [
+        "odin"
+      ],
+      "status": "current",
+      "useFor": "design rationale and common questions"
+    },
+    {
+      "id": "odin-pkg-docs",
+      "title": "Odin package documentation (pkg.odin-lang.org)",
+      "authors": "generated from the Odin sources",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://pkg.odin-lang.org/",
+      "license": "generated from zlib-licensed sources",
+      "fields": [
+        "odin"
+      ],
+      "status": "current",
+      "useFor": "browsable core/vendor docs; the same text is in odin-source"
+    },
+    {
+      "id": "odin-examples",
+      "title": "odin-lang/examples (official example programs)",
+      "authors": "Odin contributors",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://github.com/odin-lang/examples",
+      "license": "see repository",
+      "fields": [
+        "odin"
+      ],
+      "status": "current",
+      "useFor": "working examples: wasm, wgpu, raylib, SDL, networking"
+    },
+    {
+      "id": "sdl3-source",
+      "title": "SDL 3 headers, docs and examples (release-3.4.20)",
+      "authors": "SDL contributors",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/libsdl-org/SDL/tar.gz/refs/tags/release-3.4.20",
+      "version": "release-3.4.20",
+      "paths": [
+        "include/SDL3",
+        "docs",
+        "examples",
+        "README.md",
+        "LICENSE.txt"
+      ],
+      "license": "zlib",
+      "fields": [
+        "c",
+        "sdl3",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "exact SDL3 API (doc comments in include/SDL3/*.h), migration from SDL2, main callbacks, emscripten notes"
+    },
+    {
+      "id": "sokol-source",
+      "title": "sokol headers (commit 93aa187b5d38)",
+      "authors": "Andre Weissflog",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/floooh/sokol/tar.gz/93aa187b5d38",
+      "version": "93aa187b5d38",
+      "paths": [
+        "sokol_app.h",
+        "sokol_gfx.h",
+        "sokol_audio.h",
+        "sokol_time.h",
+        "sokol_fetch.h",
+        "sokol_log.h",
+        "sokol_glue.h",
+        "sokol_args.h",
+        "util",
+        "README.md",
+        "CHANGELOG.md",
+        "LICENSE"
+      ],
+      "license": "zlib",
+      "fields": [
+        "c",
+        "sokol",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "sokol_app/gfx/audio API: each header starts with a long doc block"
+    },
+    {
+      "id": "sokol-odin-source",
+      "title": "sokol-odin bindings (commit ae94aa54d4ec)",
+      "authors": "Andre Weissflog",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/floooh/sokol-odin/tar.gz/ae94aa54d4ec",
+      "version": "ae94aa54d4ec",
+      "paths": [
+        "sokol",
+        "examples",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "zlib",
+      "fields": [
+        "odin",
+        "sokol",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "using sokol from Odin"
+    },
+    {
+      "id": "clay-source-v014",
+      "title": "clay UI layout (v0.14 release)",
+      "authors": "Nic Barker",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/nicbarker/clay/tar.gz/refs/tags/v0.14",
+      "version": "v0.14",
+      "paths": [
+        "clay.h",
+        "README.md",
+        "renderers",
+        "bindings/odin",
+        "examples",
+        "LICENSE.md"
+      ],
+      "license": "zlib",
+      "fields": [
+        "c",
+        "clay",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "clay v0.14 API (CLAY(...) macros, layout config, render commands, Odin bindings)",
+      "note": "Main branch changed the element declaration API; see clay-source-main."
+    },
+    {
+      "id": "clay-source-main",
+      "title": "clay UI layout (main, commit e6cc369)",
+      "authors": "Nic Barker",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/nicbarker/clay/tar.gz/e6cc369",
+      "version": "e6cc369",
+      "paths": [
+        "clay.h",
+        "README.md",
+        "renderers",
+        "bindings/odin",
+        "examples",
+        "LICENSE.md"
+      ],
+      "license": "zlib",
+      "fields": [
+        "c",
+        "clay",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "clay main-branch API (newer element declaration form)"
+    },
+    {
+      "id": "enet-zpl-source",
+      "title": "ENet, zpl-c fork (v2.7.0, single header)",
+      "authors": "zpl-c, after Lee Salzman",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/zpl-c/enet/tar.gz/refs/tags/v2.7.0",
+      "version": "v2.7.0",
+      "paths": [
+        "include",
+        "README.md",
+        "test",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "fields": [
+        "c",
+        "networking",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "zpl ENet API (enet.h with ENET_IMPLEMENTATION, IPv6)"
+    },
+    {
+      "id": "enet-upstream-source",
+      "title": "ENet upstream (v1.3.18; what Odin vendor:ENet binds)",
+      "authors": "Lee Salzman",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/lsalzman/enet/tar.gz/refs/tags/v1.3.18",
+      "version": "v1.3.18",
+      "paths": [
+        "include",
+        "docs",
+        "README",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "fields": [
+        "c",
+        "networking",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "upstream ENet API and tutorial docs"
+    },
+    {
+      "id": "librg-source",
+      "title": "librg (v7.4.0)",
+      "authors": "zpl-c",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/zpl-c/librg/tar.gz/refs/tags/v7.4.0",
+      "version": "v7.4.0",
+      "paths": [
+        "code",
+        "docs",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "BSD-3-Clause",
+      "fields": [
+        "c",
+        "networking",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "world/chunk entity replication API and examples (example-enet.c)"
+    },
+    {
+      "id": "zpl-source",
+      "title": "zpl (release 19.5.0)",
+      "authors": "zpl-c",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/zpl-c/zpl/tar.gz/refs/tags/19.5.0",
+      "version": "19.5.0",
+      "paths": [
+        "code/header",
+        "code/source",
+        "code/apps/examples",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "Unlicense or BSD-3-Clause",
+      "fields": [
+        "c",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "zpl modules: allocators/arenas, strings, collections, threads, jobs, JSON5"
+    },
+    {
+      "id": "zenoh-c-source",
+      "title": "zenoh-c (1.10.2)",
+      "authors": "Eclipse Zenoh",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/eclipse-zenoh/zenoh-c/tar.gz/refs/tags/1.10.2",
+      "version": "1.10.2",
+      "paths": [
+        "include",
+        "examples",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "EPL-2.0 OR Apache-2.0",
+      "fields": [
+        "zenoh",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "zenoh C API (z_* functions, options structs) and examples"
+    },
+    {
+      "id": "zenoh-pico-source",
+      "title": "zenoh-pico (1.10.2)",
+      "authors": "Eclipse Zenoh",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/eclipse-zenoh/zenoh-pico/tar.gz/refs/tags/1.10.2",
+      "version": "1.10.2",
+      "paths": [
+        "include/zenoh-pico/api",
+        "include/zenoh-pico/config.h",
+        "examples",
+        "README.md",
+        "CMakeLists.txt",
+        "LICENSE"
+      ],
+      "license": "EPL-2.0 OR Apache-2.0",
+      "fields": [
+        "zenoh",
+        "robotics",
+        "embedded",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "zenoh on microcontrollers: API, Z_FEATURE_* switches, platform examples"
+    },
+    {
+      "id": "zenoh-python-source",
+      "title": "zenoh-python (1.10.2)",
+      "authors": "Eclipse Zenoh",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/eclipse-zenoh/zenoh-python/tar.gz/refs/tags/1.10.2",
+      "version": "1.10.2",
+      "paths": [
+        "zenoh",
+        "examples",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "EPL-2.0 OR Apache-2.0",
+      "fields": [
+        "zenoh",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "Python API stubs (__init__.pyi, shm.pyi, ext.pyi) and examples",
+      "extensions": [
+        ".py",
+        ".pyi"
+      ]
+    },
+    {
+      "id": "zenoh-rust-source",
+      "title": "zenoh core: config, examples, public API (1.10.2)",
+      "authors": "Eclipse Zenoh",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/eclipse-zenoh/zenoh/tar.gz/refs/tags/1.10.2",
+      "version": "1.10.2",
+      "paths": [
+        "DEFAULT_CONFIG.json5",
+        "examples",
+        "zenoh/src/api",
+        "plugins/zenoh-plugin-rest",
+        "plugins/zenoh-plugin-storage-manager",
+        "zenohd",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "EPL-2.0 OR Apache-2.0",
+      "fields": [
+        "zenoh",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "router/session config keys (DEFAULT_CONFIG.json5), zenohd, REST and storage plugins, Rust API"
+    },
+    {
+      "id": "zenoh-ros2dds-source",
+      "title": "zenoh-plugin-ros2dds / zenoh-bridge-ros2dds (1.10.2)",
+      "authors": "Eclipse Zenoh",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/eclipse-zenoh/zenoh-plugin-ros2dds/tar.gz/refs/tags/1.10.2",
+      "version": "1.10.2",
+      "paths": [
+        "README.md",
+        "DEFAULT_CONFIG.json5",
+        "zenoh-plugin-ros2dds/src",
+        "LICENSE"
+      ],
+      "license": "EPL-2.0 OR Apache-2.0",
+      "fields": [
+        "zenoh",
+        "ros2",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "DDS bridge config and topic/service/action key mapping"
+    },
+    {
+      "id": "rmw-zenoh-source",
+      "title": "rmw_zenoh (lyrical branch)",
+      "authors": "ROS 2 contributors",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/ros2/rmw_zenoh/tar.gz/refs/heads/lyrical",
+      "version": "lyrical",
+      "paths": [
+        "docs",
+        "README.md",
+        "rmw_zenoh_cpp/config",
+        "LICENSE"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "zenoh",
+        "ros2",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "rmw_zenoh design: key expressions, liveliness tokens, attachments, QoS, config env vars",
+      "note": "Tracks a branch, not a tag: re-download picks up changes only when the pin changes."
+    },
+    {
+      "id": "rosbag2-mcap-source",
+      "title": "rosbag2 MCAP storage (lyrical branch)",
+      "authors": "ROS 2 contributors",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/ros2/rosbag2/tar.gz/refs/heads/lyrical",
+      "version": "lyrical",
+      "paths": [
+        "rosbag2_storage_mcap/README.md",
+        "ros2bag",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "ros2",
+        "mcap",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "ros2 bag record/play options and MCAP writer presets"
+    },
+    {
+      "id": "mcap-source",
+      "title": "MCAP spec and libraries (python v1.6.0 release tag)",
+      "authors": "Foxglove",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/foxglove/mcap/tar.gz/refs/tags/releases/python/mcap/v1.6.0",
+      "version": "python-v1.6.0",
+      "paths": [
+        "website/docs/spec",
+        "python/mcap",
+        "python/mcap-ros2-support",
+        "cpp/mcap/include",
+        "cpp/examples",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "fields": [
+        "mcap",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "the MCAP format spec and well-known encodings registry; Python and C++ reader/writer APIs",
+      "extensions": [
+        ".py",
+        ".hpp",
+        ".h",
+        ".inl"
+      ]
+    },
+    {
+      "id": "zenoh-docs",
+      "title": "Zenoh documentation",
+      "authors": "Eclipse Zenoh",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://zenoh.io/docs/",
+      "license": "no license stated (read online)",
+      "fields": [
+        "zenoh",
+        "robotics"
+      ],
+      "status": "current",
+      "useFor": "concepts, deployment, configuration, 0.11→1.0 migration"
+    },
+    {
+      "id": "ros2-docs-lyrical",
+      "title": "ROS 2 documentation (Lyrical)",
+      "authors": "Open Robotics",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://docs.ros.org/en/lyrical/",
+      "license": "CC BY 4.0",
+      "fields": [
+        "ros2",
+        "robotics"
+      ],
+      "status": "current",
+      "useFor": "ROS 2 concepts, releases, supported platforms, tutorials"
+    },
+    {
+      "id": "mcap-spec",
+      "title": "MCAP specification",
+      "authors": "Foxglove",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://mcap.dev/spec",
+      "license": "MIT",
+      "fields": [
+        "mcap",
+        "robotics"
+      ],
+      "status": "current",
+      "useFor": "the format spec online (same text as in mcap-source)"
+    },
+    {
+      "id": "sdl3-wiki",
+      "title": "SDL3 wiki",
+      "authors": "SDL contributors",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://wiki.libsdl.org/SDL3/",
+      "license": "see site",
+      "fields": [
+        "c",
+        "sdl3"
+      ],
+      "status": "current",
+      "useFor": "per-function docs online (same text as the headers)"
     }
   ]
 }

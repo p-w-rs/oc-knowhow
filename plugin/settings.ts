@@ -4,7 +4,7 @@ import { homedir } from "node:os"
 import { isAbsolute, join } from "node:path"
 
 export const PLUGIN_ID = "oc-knowhow"
-export const VERSION = "1.4.1"
+export const VERSION = "1.5.0"
 
 export const dataDirectory = (configured?: string) => configured ?? join(process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"), PLUGIN_ID)
 
@@ -13,6 +13,9 @@ export const GROUPS = {
   ml: ["ml-training", "ml-data", "ml-tuning", "ml-qat", "ml-metrics", "ml-deploy", "gpu-kernels"],
   datascience: ["stats-inference", "experiment-design", "datasets", "field-methods"],
   figures: ["gnuplot", "diagrams"],
+  odin: ["odin", "odin-performance", "odin-targets"],
+  robotics: ["zenoh", "zenoh-ros2", "mcap"],
+  clibs: ["c-platform", "c-networking"],
 } as const
 export type Group = keyof typeof GROUPS
 
@@ -21,17 +24,20 @@ export interface Settings {
   readonly ml: boolean
   readonly datascience: boolean
   readonly figures: boolean
+  readonly odin: boolean
+  readonly robotics: boolean
+  readonly clibs: boolean
   /** Library tools (search your folders and the downloaded free references). */
   readonly library: boolean
   readonly folders: readonly LibraryFolder[]
 }
 
-export const DEFAULTS: Settings = { ml: true, datascience: true, figures: true, library: true, folders: [] }
+export const DEFAULTS: Settings = { ml: true, datascience: true, figures: true, odin: true, robotics: true, clibs: true, library: true, folders: [] }
 
 export function normalizeSettings(raw: unknown, base: Settings = DEFAULTS): Settings {
   const value = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {}
   const result: Record<string, unknown> = { ...base }
-  for (const key of ["ml", "datascience", "figures", "library"] as const) if (typeof value[key] === "boolean") result[key] = value[key]
+  for (const key of ["ml", "datascience", "figures", "odin", "robotics", "clibs", "library"] as const) if (typeof value[key] === "boolean") result[key] = value[key]
   if (Array.isArray(value.folders)) {
     result.folders = value.folders.flatMap(item => {
       const folder = item as Record<string, unknown>

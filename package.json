@@ -1,10 +1,10 @@
 {
   "name": "oc-knowhow",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
-  "description": "Expert know-how for OpenCode agents: data science (statistics, experiment design, datasets), gnuplot figures, diagrams, machine learning, and a private reference library with citations",
+  "description": "Expert know-how for OpenCode agents: data science, figures and diagrams, machine learning, Odin, robotics data (Zenoh, ROS 2, MCAP), C libraries, and a private reference library (books, papers, source code) with citations",
   "repository": {
     "type": "git",
     "url": "https://github.com/p-w-rs/oc-knowhow.git"
