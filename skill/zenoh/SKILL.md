@@ -153,7 +153,7 @@ Rust: `let s = zenoh::open(zenoh::Config::default()).await?; s.put("k", "v").awa
   and disable multicast (`--no-multicast-scouting`).
 - Endpoints: `tcp/host:7447`, `udp/host:7447` (best effort), `tls/host:7447`, `quic/host:7447`, `ws/host:7447`,
   `unixsock-stream/path`, `udp/224.0.0.123:7447#iface=eth0` (multicast transport), `serial//dev/ttyACM0#baudrate=115200`
-  (**only** in a `zenohd` built with cargo feature `transport_serial`; default features are tcp, udp, tls, quic,
+  (**only** in a `zenohd` built with the zenoh crate feature `transport_serial`, which conda-forge's is not (§7); default features are tcp, udp, tls, quic,
   quic_datagram, ws, unixsock-stream, multilink, compression, auth_pubkey, auth_usrpwd; SHM is feature `shared-memory`).
 - Two routers on different hosts: `connect` on one to the other's `listen`. Cross-network via SSH when only SSH gets
   through (tested): `ssh -L 27447:127.0.0.1:7447 hostA` + `ssh -R 17447:127.0.0.1:27447 hostB`, then the router on B
@@ -205,32 +205,106 @@ Storage volumes: `memory` built in; RocksDB, InfluxDB, filesystem, S3 backends a
 `garbage_collection` are storage options. A storage answers `get` like a queryable: apps don't know it's there.
 From any session: `session.get("@/*/router")`, `@/<zid>/router/status/plugins/**`, `@/<zid>/session/**`.
 
-### Security
+### Security (tested 13 Nov 2026: conda-forge zenohd 1.10.2 + Python eclipse-zenoh 1.10.2)
 
-- TLS: endpoints `tls/…` + `transport/link/tls/{root_ca_certificate, listen_private_key, listen_certificate,
-  enable_mtls, connect_private_key, connect_certificate, verify_name_on_connect}` (QUIC uses the same TLS block).
-  With `enable_mtls`, ACL subjects can match `cert_common_names`.
-- `transport/auth/usrpwd/{user,password,dictionary_file}` (router has the dictionary, clients user/password).
-- `access_control`: `enabled`, `default_permission` (`deny`/`allow`), `rules` (id, `messages` [put, delete,
-  declare_subscriber, query, reply, declare_queryable, liveliness_token, liveliness_query,
-  declare_liveliness_subscriber], `flows` [ingress, egress], `permission`, `key_exprs`), `subjects` (interfaces,
-  cert_common_names, usernames, link_protocols, zids), `policies` (rules × subjects). Copy the block from
-  `DEFAULT_CONFIG.json5` at your tag and test both allowed and denied keys.
+**TLS and QUIC** share one block, `transport/link/tls`. Keys at 1.10.2: `root_ca_certificate`, `listen_certificate`,
+`listen_private_key`, `enable_mtls`, `connect_certificate`, `connect_private_key`, `verify_name_on_connect` (default
+true), `close_link_on_expiration`, `so_rcvbuf`/`so_sndbuf`. The server certificate needs a SAN for the name or IP that
+clients dial (`subjectAltName=DNS:localhost,IP:127.0.0.1`). Test PKI (openssl 3):
+`openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 30 -keyout ca.key -out ca.pem -subj "/CN=Test CA" -addext basicConstraints=critical,CA:TRUE -addext keyUsage=critical,keyCertSign,cRLSign`,
+then a CSR for each leaf, signed with `openssl x509 -req … -CA ca.pem -CAkey ca.key -extfile <(printf 'subjectAltName=…\nextendedKeyUsage=serverAuth')`
+(`clientAuth` for client certificates).
+```json5
+// router (mTLS on; drop the last two keys for server-only TLS)
+{ mode: "router", listen: { endpoints: ["tls/0.0.0.0:7448", "quic/0.0.0.0:7449"] },
+  transport: { link: { tls: { listen_certificate: "server.pem", listen_private_key: "server.key",
+                              root_ca_certificate: "ca.pem", enable_mtls: true } } } }
+// client: connect tls/<host>:7448 (or quic/…) with
+  transport: { link: { tls: { root_ca_certificate: "ca.pem",
+                              enable_mtls: true, connect_certificate: "client.pem", connect_private_key: "client.key" } } }
+```
+- Results: right CA works, and `session.info.links()[i].auth_identifier` is the server CN. With no CA or the wrong
+  CA, the client logs `invalid peer certificate: UnknownIssuer` and the router logs `received fatal alert: UnknownCA`.
+  Python only raises `Unable to connect to any of [...]`: set `RUST_LOG=zenoh=debug` to see why.
+- **mTLS pitfall**: the client also needs `enable_mtls: true`. Otherwise it never sends its certificate, even with
+  `connect_certificate` set, and the router logs `peer sent no certificates` (QUIC: `crypto(74) … peer sent no
+  certificates`). Presenting the CA as a client certificate fails with `CaUsedAsEndEntity`.
+- **QUIC pitfall**: UDP doesn't fall back between address families. On a host where `localhost` resolves only to
+  `::1`, `quic/localhost:7449` against a listener on `127.0.0.1` times out after 10 s (`deadline has elapsed`; TLS
+  over TCP worked). Dial the IP that is listening, or listen on `quic/[::]:7449`.
+
+**User/password**: the router gets `transport: { auth: { usrpwd: { dictionary_file: "users.txt" } } }`, with one
+`user:password` line per user (plain text, so protect the file; combine with TLS). Clients get
+`transport/auth/usrpwd/{user,password}`. With a wrong password or an unknown user, the client logs `Received a close
+message (reason GENERIC) in response to an OpenSyn` and the open fails. With no credentials it logs `… (reason 0)
+in response to an InitSyn`. The router logs no WARN or ERROR for rejected logins.
+
+**Access control** (tested with `usernames` and `cert_common_names` subjects):
+```json5
+access_control: { enabled: true, default_permission: "deny",
+  rules: [
+    { id: "pub",     messages: ["put", "delete", "query"], flows: ["ingress"], permission: "allow", key_exprs: ["demo/allowed/**"] },
+    { id: "secret",  messages: ["put", "query"],           flows: ["ingress"], permission: "deny",  key_exprs: ["demo/secret/**"] },
+    { id: "rep_out", messages: ["reply"],                  flows: ["egress"],  permission: "allow", key_exprs: ["demo/**"] },
+    { id: "sub_in",  messages: ["declare_subscriber", "declare_queryable", "reply"], flows: ["ingress"], permission: "allow", key_exprs: ["demo/**"] },
+    { id: "sub_out", messages: ["put", "delete", "query"], flows: ["egress"],  permission: "allow", key_exprs: ["demo/**"] } ],
+  subjects: [ { id: "alice", usernames: ["alice"] }, { id: "bob", usernames: ["bob"] } ],   // or cert_common_names: ["client.example"]
+  policies: [ { rules: ["pub", "secret", "rep_out"], subjects: ["alice"] }, { rules: ["sub_in", "sub_out"], subjects: ["bob"] } ] }
+```
+- Flows are seen from the router. A publisher needs `put` **ingress**. Its subscribers need `declare_subscriber`
+  ingress **and** `put` egress. A querier needs `query` ingress + `reply` egress. A queryable needs
+  `declare_queryable` + `reply` ingress and `query` egress. Anything not allowed falls to `default_permission`.
+- Results: alice's `demo/allowed/a` reached bob. `demo/secret/b` and `demo/other/c` were **dropped silently**
+  (`put()` still returns OK), and `get("demo/secret/q")` returned 0 replies, the same as no queryable.
+- A subscription wider than what is allowed is **denied as a whole**: `declare_subscriber("demo/**")` with only
+  `demo/allowed/**` allowed received nothing. Subscribe inside the allowed keys.
+- Denials are logged only at TRACE: `RUST_LOG=info,zenoh::net::routing::interceptor::access_control=trace zenohd -c …`
+  → `<zid> on Interface(lo)+Username(alice)+Transport(Tcp)+<zid> is unauthorized to Put (ingress) on demo/secret/b`
+  (TLS: `CertCommonName(client.example)+Transport(Tls)`). According to the source (not seen in the tests), a session
+  that matches no subject is logged at INFO as `did not match any configured ACL subject`.
 
 ## 5. Shared memory
 
-SHM avoids copies between processes on one host: large payloads (images, point clouds) go through a shared segment,
-only a reference crosses the socket. Config `transport/shared_memory/enabled` (true by default in 1.10's
-DEFAULT_CONFIG; check yours), `mode` (`lazy`/`init`), `transport_optimization/{enabled,pool_size,message_size_threshold}`
-(implicit SHM for any big `put`; default threshold 3072 B in zenoh 1.10.2's config). Both ends must enable it
-and be on the same host (falls back to the network otherwise). Explicit API (not run in validation; follow the
-examples): Python `zenoh.shm.ShmProvider.default_backend(layout)` → `provider.alloc(…)` (policies `BlockOn`,
-`GarbageCollect`, `Defragment`) → write into the `ZShmMut` → `put`; receivers can check `payload.as_shm()`.
-C `z_shm_provider_default_new`; examples `z_pub_shm.py`, `z_pub_shm.c`, `z_sub_shm.c`, `z_alloc_shm.rs`.
-Gains are for large messages (images, point clouds) and fan-out to several local subscribers; for small messages
-there is no benefit, which is why the threshold exists (measure with `z_pub_shm_thr`/`z_ping_shm`). `/dev/shm` must be
-large enough (Docker: `--ipc=host` or `--shm-size`). A `zenohd` built from source needs cargo feature `shared-memory`
-for SHM on router links; check what your package was built with.
+SHM avoids copies between processes on one host. A large payload goes into a POSIX shared-memory segment
+(`/dev/shm/<id>.zenoh`) and only a reference crosses the socket. Config (1.10.2 defaults):
+`transport/shared_memory/{enabled: true, mode: "lazy"|"init"}` and
+`transport/shared_memory/transport_optimization/{enabled: true, pool_size: 16777216, message_size_threshold: 3072,
+messages: ["put","query","reply"]}`. The optimization is **implicit SHM**: a plain `put` of ≥ 3 KiB is copied into
+the pool. Both sides must have SHM enabled and be on the same host, and a link that fails the SHM probe falls back
+to the network silently. Build support: PyPI `eclipse-zenoh` and conda-forge `libzenohc` 1.10.2 have it
+(`zenoh_configure.h`: `Z_FEATURE_SHARED_MEMORY`, `Z_FEATURE_UNSTABLE_API`). A Rust or `zenohd` build needs cargo
+feature `shared-memory`.
+
+Explicit API (Python 1.10.2, `@_unstable`, tested):
+```python
+provider = zenoh.shm.ShmProvider.default_backend(6 * 1024 * 1024)        # pool bytes (or MemoryLayout)
+buf = provider.alloc(len(data), policy=zenoh.shm.BlockOn(zenoh.shm.GarbageCollect()))   # ZShmMut
+buf[:] = data                                                           # or fill slices in place
+pub.put(buf)
+# receiver: smp.payload.as_shm() is a ZShm (not None) when it arrived through SHM; None = copied/RAW
+```
+C: `z_shm_provider_default_new(&p, size)`, `z_shm_provider_alloc_gc_defrag_blocking(&res, z_loan(p), len)`, then
+`z_shm_from_mut` → `z_bytes_from_shm` → `z_publisher_put`. Receivers check with
+`z_bytes_as_loaned_shm(payload, &shm) == Z_OK` (zenoh-c examples `z_pub_shm.c`/`z_sub_shm.c`). The 1.10.2
+`z_ping_shm.c` example sizes its provider exactly to one buffer and fails with `Unexpected failure during SHM buffer
+allocation`, so use a pool larger than the message.
+
+**Locked memory pitfall (tested)**: zenoh **`mlock()`s every SHM segment it creates or opens**, so `ulimit -l`
+(`RLIMIT_MEMLOCK`) caps SHM. On a host with an 8 MiB limit, the default 16 MiB pool failed with
+`Error creating lazy ShmProvider: Unable to create POSIX shm segment: OS error 12`, and every sample arrived RAW with
+no other symptom. Each process locks its own pool, the peers' segments it opens, and about 1.3 MiB of internals. When
+ping and pong both used 6 MiB pools, they deadlocked with no output. Check `ulimit -l` and raise it
+(`/etc/security/limits.conf` `memlock`, systemd `LimitMEMLOCK=`, Docker `--ulimit memlock=-1` plus `--ipc=host` or
+`--shm-size`), or shrink `pool_size`. The WARN `error setting scheduling priority for thread` from the SHM watchdog is
+harmless.
+
+Measured (zenoh 1.10.2, two processes, peer↔peer over loopback TCP, 24-core x86_64, pools of 6 MiB because of that
+limit). Python one-way latency: 1 MiB **760 µs with explicit SHM vs 2.7 ms without**, 4 MiB **750 µs vs 7.0 ms**.
+Implicit SHM at 1 MiB: 1.2 ms, 13.6 k msg/s (≈ 14 GB/s, 299/300 samples SHM). At 4 MiB, implicit SHM ran out of the
+6 MiB pool for 27 of 60 samples, which fell back to RAW. zenoh-c `z_ping`/`z_pong` 1 MiB RTT: **43 µs with implicit
+SHM vs 534 µs** with `transport/shared_memory/enabled:false`. 64 B RTT is 24 µs either way. Without SHM: 64 MiB
+messages took 40 ms each (1.3 GB/s). The gain grows with message size and the number of local subscribers. Small
+messages gain nothing (hence the threshold).
 
 ## 6. Performance
 
@@ -254,8 +328,47 @@ Arduino, ESP-IDF, Mbed, RPi Pico (also USB CDC, needs `Z_FEATURE_LINK_SERIAL_USB
 FreeRTOS-Plus-TCP: UDP unicast + TCP. Build-time features `Z_FEATURE_{PUBLICATION,SUBSCRIPTION,QUERY,QUERYABLE,LIVELINESS,
 MATCHING,INTEREST,MULTI_THREAD,LINK_TLS,LINK_UDP_MULTICAST,RAWETH_TRANSPORT,ADVANCED_PUBLICATION,…}` (CMake options)
 shrink RAM/flash. Serial: device `-DZENOH_CONFIG_CONNECT="serial/uart1_0#baudrate=38400"`, host
-`zenohd -l serial//dev/ttyACM0#baudrate=115200` with a serial-enabled `zenohd`. API is the same `z_*` C API as zenoh-c
-(owned/loaned/moved), so code ports with small changes; zenoh-cpp can sit on top of pico.
+`zenohd -l serial//dev/ttyACM0#baudrate=115200` with a serial-enabled `zenohd`. The conda-forge `zenohd` 1.10.2 is
+**not** serial-enabled: it fails with `Unable to open listener serial//dev/pts/0#…: Unicast not supported for serial
+protocol`. Build zenohd yourself with the zenoh crate feature `transport_serial` (e.g.
+`cargo build --release -p zenohd --features zenoh/transport_serial`; not tested). zenoh-pico on Unix has no serial
+link. The API is the same `z_*` C API as zenoh-c (owned/loaned/moved), so code ports with small changes. zenoh-cpp
+can sit on top of pico. Client calls: `zp_config_insert(z_loan_mut(cfg), Z_CONFIG_MODE_KEY, "client")`,
+`Z_CONFIG_CONNECT_KEY, "tcp/…"`.
+
+**Unix (tested 1.10.2)**: `cmake -S zenoh-pico -B build -DBUILD_TESTING=OFF && cmake --build build -j`, with
+`cmake`/`c-compiler` from Pixi. Examples are in `build/examples/` (`z_pub`, `z_sub`, `z_get`, `z_queryable`, … with
+getopt flags `-m client -e tcp/127.0.0.1:7447 -k key -v value -n count`). They talked to `zenohd` and Python both ways.
+Add `stdbuf -oL` when you redirect their output.
+
+**Zephyr in QEMU (tested: zenoh-pico 1.10.2, Zephyr v4.4.2, Zephyr SDK 1.0.1, board `qemu_x86`)**. The SDK's
+`hosttools` bundle includes QEMU 10.0.2, so you don't need to build QEMU. Steps:
+`west init -m https://github.com/zephyrproject-rtos/zephyr --mr v4.4.2 ws` →
+`west config manifest.project-filter -- "-.*"` → `west update` (zephyr only, 1.5 GB). Unpack the SDK `_minimal`
+tarball, put `toolchain_gnu_linux-x86_64_x86_64-zephyr-elf` into `<sdk>/gnu/`, run
+`hosttools/zephyr-sdk-x86_64-hosttools-standalone-*.sh -y -d .` and `./setup.sh -c`. West and the Zephyr Python
+requirements come from Pixi (pypi `west`, `pyelftools`, `pykwalify`, …). zenoh-pico is a Zephyr module
+(`zephyr/module.yml`):
+```sh
+west build -b qemu_x86 -d build app -- -DZEPHYR_EXTRA_MODULES=/path/to/zenoh-pico   # 638 KB RAM
+west build -d build -t run          # qemu: -nic user,model=e1000  → guest 10.0.2.15, host = 10.0.2.2
+```
+App `prj.conf` essentials. NIC and user networking:
+`CONFIG_NETWORKING=y CONFIG_PCIE=y CONFIG_NET_L2_ETHERNET=y CONFIG_NET_QEMU_USER=y CONFIG_NET_IPV4=y CONFIG_NET_TCP=y CONFIG_NET_UDP=y CONFIG_NET_SOCKETS=y CONFIG_DNS_RESOLVER=y CONFIG_NET_CONFIG_SETTINGS=y CONFIG_NET_CONFIG_NEED_IPV4=y CONFIG_NET_CONFIG_MY_IPV4_ADDR="10.0.2.15" CONFIG_NET_CONFIG_MY_IPV4_GW="10.0.2.2"`.
+libc and POSIX:
+`CONFIG_NEWLIB_LIBC=y CONFIG_POSIX_API=y CONFIG_MAIN_STACK_SIZE=8192 CONFIG_HEAP_MEM_POOL_SIZE=150000 CONFIG_MAX_PTHREAD_MUTEX_COUNT=32 CONFIG_MAX_PTHREAD_COND_COUNT=16 CONFIG_POSIX_THREAD_THREADS_MAX=8`.
+zenoh-pico: `CONFIG_ZENOH_PICO=y` plus each feature you use, because the module's booleans have **no defaults**:
+`_MULTI_THREAD _PUBLICATION _SUBSCRIPTION _QUERY _QUERYABLE _INTEREST _FRAGMENTATION _BATCHING _UNICAST_TRANSPORT _LINK_TCP _TCP_NODELAY _ENCODING_VALUES _SESSION_CHECK` (each `=y`).
+Connect with `tcp/10.0.2.2:7447`; the host router listens on `127.0.0.1:7447` or `0.0.0.0:7447`. Result: Zephyr
+pub → Python sub (45/45), Python put → Zephyr sub, Zephyr `z_get` → Python queryable, Python `get` → Zephyr
+queryable all worked. Failures on the way, with fixes:
+- Without `CONFIG_DNS_RESOLVER`, `z_open` returned -102 (`_Z_ERR_TRANSPORT_OPEN_FAILED`). zenoh-pico calls
+  `getaddrinfo` even for an IP address.
+- With Zephyr's default POSIX pools (5 mutexes, 5 condition variables, 5 threads), the Zenoh INIT/OPEN handshake
+  succeeded, then `System error: 12` (ENOMEM from `pthread_mutex_init`) and `z_open` returned -80. Raise the counts
+  above.
+- To see pico's debug log, add `zephyr_compile_definitions(ZENOH_LOG_DEBUG)` to the app's `CMakeLists.txt`.
+  `ZENOH_LOG_{ERROR,WARN,INFO,DEBUG,TRACE}` (and legacy `ZENOH_DEBUG=1..3`) select the level.
 
 ## 8. Odin (brief; see the odin skill)
 
@@ -276,3 +389,7 @@ bindings from the header for anything larger (and re-check blob sizes on each up
 5. `session.put` with no subscriber is cheap but not free; use the matching listener for heavy producers.
 6. Wildcards in `reply` keys are an error: reply with a concrete key inside the query's key expression.
 7. Document the config: commit the JSON5, and print the effective config (`zenohd` logs `Initial conf: …` at INFO).
+8. Security fails quietly. mTLS needs `enable_mtls: true` on **both** sides. ACL denials drop data silently (put
+   returns OK, get returns 0 replies) and are logged only at TRACE. Test allowed **and** denied keys before shipping.
+9. SHM fails quietly too. `ulimit -l` below the pool size means every sample goes RAW. Check
+   `payload.as_shm()` on the receiver once.

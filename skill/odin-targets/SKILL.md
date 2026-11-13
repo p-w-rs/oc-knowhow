@@ -1,13 +1,13 @@
 ---
 name: odin-targets
-description: Odin on embedded/bare-metal and WebAssembly — the target list (freestanding_amd64_sysv/arm64/arm32/riscv64/wasm32, js_wasm32, wasi_wasm32, wasm64p32, linux_riscv64…), building objects with -build-mode:obj for a C startup file and linker script, Cortex-M via freestanding_arm32 + -microarch:cortex-mX (compiler-rt builtins, -no-thread-local), what the freestanding runtime gives you (nil allocator, trap on exit/panic, no OS output) and what you must supply (context, allocator, assertion proc, memset via -no-crt), memory-mapped I/O with intrinsics.volatile_load/store, interrupt handlers, running in QEMU (virt aarch64 PL011, mps2-an385/an386 Cortex-M3/M4) with semihosting exit codes, and WebAssembly (js_wasm32 with core/sys/wasm/js/odin.js, WebGL/WebGPU, @(export) procs and step(dt), wasi_wasm32 with wasmtime, freestanding_wasm32 libraries, wasm memory/allocator, size optimization with wasm-opt). Load before targeting an MCU, a kernel, or the browser/WASI; language basics in the odin skill.
+description: Odin on embedded/bare-metal and WebAssembly — the target list (freestanding_amd64_sysv/arm64/arm32/riscv64/wasm32, js_wasm32, wasi_wasm32, wasm64p32, linux_riscv64…), building objects with -build-mode:obj for a C startup file and linker script, Cortex-M via freestanding_arm32 + -microarch:cortex-mX (compiler-rt builtins, -no-thread-local), what the freestanding runtime gives you (nil allocator, trap on exit/panic, no OS output) and what you must supply (context, allocator, assertion proc, memset via -no-crt), memory-mapped I/O with intrinsics.volatile_load/store, interrupt handlers, running in QEMU (virt aarch64 PL011, mps2-an385/an386 Cortex-M3/M4, virt riscv64 with 16550 UART, CLINT timer and sifive_test exit; building QEMU riscv with Pixi) with semihosting exit codes, and WebAssembly (js_wasm32 with core/sys/wasm/js/odin.js, WebGL/WebGPU, @(export) procs and step(dt), wasi_wasm32 with wasmtime, freestanding_wasm32 libraries, wasm memory/allocator, size optimization with wasm-opt). Load before targeting an MCU, a kernel, or the browser/WASI; language basics in the odin skill.
 ---
 
 # Odin for embedded and WebAssembly
 
 Validated with Odin **dev-2026-11a** (macOS arm64 host; Linux x86_64 and aarch64 for linking C hosts): Odin ran on
 QEMU `virt` aarch64 (PL011 UART), QEMU `mps2-an385` (Cortex-M3) and `mps2-an386` (Cortex-M4F) with SysTick
-interrupts, as a freestanding object linked into C programs, as `wasi_wasm32` under wasmtime, as a
+interrupts, QEMU `virt` riscv64 in machine mode with CLINT timer interrupts, as a freestanding object linked into C programs, as `wasi_wasm32` under wasmtime, as a
 `freestanding_wasm32` library, and as a `js_wasm32` WebGL page in Chrome. Targets and runtime behavior change between
 releases: run `odin build . -target:"?"` and read `base/runtime/os_specific_freestanding.odin`,
 `base/runtime/procs.odin`, `core/sys/wasm/README.md` for your tag. Verify; don't trust these.
@@ -18,7 +18,9 @@ releases: run `odin build . -target:"?"` and read `base/runtime/os_specific_free
   `freestanding_amd64_win64`, `freestanding_amd64_mingw`, `freestanding_arm64` (aarch64-none-elf),
   `freestanding_arm32` (arm-none-eabihf; Cortex-A/R/M via `-microarch:`), `freestanding_riscv64`
   (riscv64-unknown-gnu, RV64GC, lp64d), `freestanding_wasm32`, `freestanding_wasm64p32`.
-  No riscv32, no AVR/Xtensa/MSP430: for those, Odin is not an option (LLVM-IR export won't help with the runtime).
+  **No riscv32** (`Unknown target 'freestanding_riscv32'`; `-microarch:generic-rv32` → "missing required target
+  feature 64bit", `-target-features:32bit` → `LLVM ERROR: RV32 and RV64 can't be combined`), no AVR/Xtensa/MSP430:
+  for those, Odin is not an option (LLVM-IR export won't help with the runtime).
 - WASM: `js_wasm32`, `js_wasm64p32` (64-bit ints, 32-bit pointers), `wasi_wasm32`, `wasi_wasm64p32`, `orca_wasm32`.
 - OS targets useful for embedded Linux: `linux_arm64`, `linux_arm32`, `linux_riscv64`, plus `-subtarget:android`.
 - `-microarch:"?"` and `-target-features:"?"` list CPU names/features for the chosen target (arm32 lists cortex-m0 …
@@ -49,10 +51,41 @@ qemu-system-aarch64 -M virt -cpu cortex-a72 -nographic -semihosting -kernel kern
   `clang --target=thumbv7m-none-eabi -mfloat-abi=soft` into a static lib (done here: ~50 files). On M4F/M7 enable the
   FPU in the reset handler (`SCB->CPACR |= 0xF << 20` at `0xE000ED88`) — otherwise the first float instruction
   faults (validated hang). The triple is hard-float EABI; M0/M3 code has no FPU instructions anyway.
-- RISC-V: `freestanding_riscv64` objects build (RVC, double-float ABI); boot with OpenSBI/`-M virt -bios none` and a
-  `start.S` like the aarch64 one (UART 16550 at 0x10000000). Not run here: no `qemu-system-riscv64` on conda-forge
-  or the test hosts. `linux_riscv64 -no-crt -default-to-nil-allocator -no-thread-local -linker:lld` binaries ran under
-  `qemu-riscv64` user mode (`pixi exec --spec qemu-execve-riscv64 qemu-riscv64 ./app`).
+- **RISC-V** (validated 2026-11-13 on QEMU 11.1.3 `-M virt`, machine mode, `-bios none`): UART, `fmt`, `mem.Arena`,
+  map, CLINT timer interrupts, exit codes all work.
+  ```sh
+  odin build main.odin -file -target:freestanding_riscv64 -build-mode:obj -no-crt -no-thread-local -o:size \
+    -reloc-mode:pic -out:kernel.o
+  clang --target=riscv64-unknown-elf -march=rv64gc -mabi=lp64d -c start.S -o start.o   # pixi exec --spec clang --spec lld
+  ld.lld -T link.ld start.o kernel.o -o kernel.elf
+  qemu-system-riscv64 -M virt -bios none -nographic -monitor none -serial stdio -kernel kernel.elf; echo $?
+  ```
+  - **`-reloc-mode:pic`, not `static`**: the default medlow code model uses absolute `lui` (±2 GiB around 0), which
+    can't reach RAM at 0x80000000 → `ld.lld: relocation R_RISCV_HI20 out of range`. Odin has no code-model flag;
+    `pic` emits PC-relative `auipc` (medany-like, no GOT entries in the object) and links into a plain static ELF.
+  - `-no-crt` (else undefined `memcpy/memmove/memset`) **and** `-no-thread-local` (else undefined `__tls_get_addr`).
+  - Object is RV64GC lp64d (`readelf -h`: "RVC, double-float ABI"): `start.S` must set `mstatus.FS`
+    (`li t0, 1<<13; csrs mstatus, t0`) before calling Odin, otherwise the first FP instruction traps (validated: one
+    UART line, then trap). Also: park harts ≠ 0 (`csrr t0, mhartid`), `la gp, __global_pointer$` under
+    `.option norelax`, `la sp, __stack_top`, zero `.bss`, `csrw mtvec, trap_entry`, `call kmain`.
+  - `link.ld`: `MEMORY { RAM : ORIGIN = 0x80000000, LENGTH = 128M }`, `.text` with `KEEP(*(.text.start))` first,
+    `.rodata`, `.data` (+`__global_pointer$ = . + 0x800` before `.sdata`), `.bss` (`.sbss`/`.bss`, `__bss_start/end`),
+    a 64 KiB `.stack` with `__stack_top`, discard `.eh_frame`. QEMU `-bios none` jumps to 0x80000000 in M-mode.
+  - virt map (`hw/riscv/virt.c`): NS16550A UART 0x1000_0000 (THR +0, LSR +5 bit5 = THR empty; byte accesses),
+    `sifive_test` 0x10_0000, CLINT 0x200_0000 (`mtimecmp` hart0 0x200_4000, `mtime` 0x200_BFF8, 10 MHz).
+  - Exit codes: write `u32` to 0x100000 — `0x5555` = pass (qemu exits 0), `(code << 16) | 0x3333` = fail with
+    status `code` (validated `-define:EXIT_CODE=3` → shell `$?` 3). No `-semihosting` needed.
+  - Timer interrupt: asm `trap_entry` saves caller-saved int regs, calls Odin `@(export) trap_handler :: proc "c"
+    (mcause, mepc: uintptr)` (interrupt bit = top bit, cause 7 = M timer; rearm `mtimecmp = mtime + N`), `mret`.
+    Enable with `csrs mie, 1<<7` + `csrsi mstatus, 1<<3`; main loop `wfi`. Keep the handler integer-only or save
+    f-regs too. Size with `fmt`: text 123 KB, data 34 KB.
+  - **QEMU for RISC-V system emulation is not on conda-forge**; building it with Pixi takes ~30 s on 24 cores:
+    `pixi add c-compiler ninja pkg-config glib pixman python make zlib`, then in `pixi run`:
+    `configure --target-list=riscv64-softmmu,riscv32-softmmu --disable-docs --without-default-features
+    --disable-plugins && ninja -j24` (`--without-default-features` keeps configure from mixing in the system C++
+    compiler and libs; `zlib` is required). Binaries (62 MB each) RPATH into the env, so keep the env.
+  - `linux_riscv64 -no-crt -default-to-nil-allocator -no-thread-local -linker:lld` binaries ran under `qemu-riscv64`
+    user mode (`pixi exec --spec qemu-execve-riscv64 qemu-riscv64 ./app`).
 - x86_64 kernels: `freestanding_amd64_sysv` + `-disable-red-zone` (interrupts clobber the red zone) +
   `-reloc-mode:static`; boot via Multiboot2/Limine; also kernel-mode code must avoid SSE until you enable it.
 - Also link freestanding objects into ordinary C programs (plugins, kernels' userland tests): validated on Linux
@@ -101,8 +134,9 @@ systick_handler :: proc "c" () { intrinsics.volatile_store(&ticks, intrinsics.vo
 - QEMU exits with the program's status via semihosting (`-semihosting`; aarch64 `SYS_EXIT` 0x18 with
   `{0x20026, code}`, arm `bkpt 0xab` with r0=0x18, r1=0x20026): validated `-define:EXIT_CODE=3` → qemu exit 3 — use it
   for CI. Boards validated: `-M virt -cpu cortex-a72` (aarch64, load at 0x40080000), `-M mps2-an385` (M3),
-  `-M mps2-an386` (M4F); CMSDK UART0 at 0x40004000 (enable TX in CTRL, poll STATE bit0). QEMU itself is **not** on
-  conda-forge (only user-mode `qemu-execve-*`): use the system package (apt/MacPorts) or a container.
+  `-M mps2-an386` (M4F); CMSDK UART0 at 0x40004000 (enable TX in CTRL, poll STATE bit0). RISC-V `virt` uses the
+  `sifive_test` device instead (see above). QEMU system emulators are **not** on conda-forge (only user-mode
+  `qemu-execve-*`): use the system package (apt/MacPorts), a container, or build from source with Pixi (above).
 
 ## WebAssembly
 
@@ -153,7 +187,8 @@ systick_handler :: proc "c" () { intrinsics.volatile_store(&ticks, intrinsics.vo
 ## Checklist for a new board/target
 
 1. `-target` + `-microarch` (+ `-target-features`), confirm with `llvm-objdump -d` / `readelf -A` on the object.
-2. `-build-mode:obj -no-crt` (+ `-no-thread-local` on Cortex-M, `-disable-red-zone` on x86_64,
+2. `-build-mode:obj -no-crt` (+ `-no-thread-local` on Cortex-M and RISC-V, `-reloc-mode:pic` on RISC-V when RAM is
+   above 2 GiB, `-disable-red-zone` on x86_64,
    `strict-align` if unaligned access faults), link with startup + linker script + builtins.
 3. Entry `@(export) proc "c"` that sets `context` and an allocator over a static buffer, plus an assertion proc that
    reports over UART.
