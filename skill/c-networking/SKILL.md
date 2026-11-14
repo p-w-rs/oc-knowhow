@@ -9,9 +9,12 @@ description: Real-time game/simulation networking and utilities in C (and from O
 
 - Versions as of Nov 2026 (verify with `git ls-remote --tags`): **zpl-c/enet v2.7.0** (2026-06, `ENET_VERSION_MAJOR 2`),
   upstream **lsalzman/enet v1.3.18**, **librg v7.4.0** (2025-01; `master` has only CI commits since), **zpl 19.5.0**
-  (2024-08; git tags stop at the 2019 `v9.8.5`, so take the header from GitHub Releases). Use the release assets:
+  (2024-08; tag `19.5.0` — note `git ls-remote --tags | sort -V` lists the old `v9.8.5` last because of the `v` prefix; take the single header from GitHub Releases). Use the release assets:
   `https://github.com/zpl-c/{enet,librg,zpl}/releases/download/<tag>/{enet,librg,zpl}.h`. In the zpl repo,
   `code/zpl.h` is a multi-file dev header, not the single-file distribution.
+- The reference library holds these sources at the pinned tags (`enet-zpl-source`, `enet-upstream-source`,
+  `librg-source`, `zpl-source`; Odin's `vendor:ENet` in `odin-source`): `library_search` returns each declaration with
+  its doc comment and file:line, e.g. `library_search query="enet_host_service" sources=["enet-zpl-source"]`.
 - Read the header for the version you vendor: ENet `enet.h` (API near line 900–1080), librg `code/header/*.h` +
   `docs/`, zpl `code/header/**` (one file per module). Docs: http://enet.bespin.org (upstream tutorial and design; the API
   is the same apart from the differences listed below), https://zpl-c.github.io/librg/, https://github.com/zpl-c/zpl.

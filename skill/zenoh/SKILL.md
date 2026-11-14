@@ -8,6 +8,9 @@ description: Build distributed robotics/IoT systems with Eclipse Zenoh 1.x — k
 Zenoh is a pub/sub + query protocol with routing: data goes to **key expressions**, not to topics or brokers.
 For ROS 2 interop see the **zenoh-ros2** skill, for recording to files see **mcap**. Environments come from
 **pixi**; for Odin bindings also load **odin**; sockets, firewalls and tunnels are in **c-networking**.
+The reference library holds the 1.10.2 sources: `zenoh-rust-source` (DEFAULT_CONFIG.json5 — every config key with its
+comment — zenohd, REST/storage plugins, Rust API), `zenoh-c-source`, `zenoh-pico-source`, `zenoh-python-source`
+(`.pyi` stubs). Check config keys and function signatures there with `library_search` before writing them.
 
 ## 0. Ground truth first (as of Nov 2026, verify)
 

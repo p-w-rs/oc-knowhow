@@ -8,6 +8,8 @@ description: Record, inspect, repair and read MCAP robotics log files — the fo
 MCAP is a self-describing container for timestamped multi-channel messages (any serialization), the default
 rosbag2 storage since Iron and Foxglove's native format. Getting data from Zenoh/ROS 2 into it: **zenoh**,
 **zenoh-ros2**. Environments: **pixi**. Analysis of recorded data: **stats-inference**, plots: **gnuplot**.
+The reference library holds `mcap-source` (the spec and well-known encodings registry, Python and C++ APIs) and
+`rosbag2-mcap-source` (writer options and presets): `library_search` there for record layouts and API signatures.
 
 ## 0. Versions (as of 13 Nov 2026, verify at https://github.com/foxglove/mcap/releases)
 

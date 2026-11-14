@@ -16,6 +16,9 @@ description: Build windowed, rendering, input and audio programs in C (and from 
 - Headers are the documentation: SDL `include/SDL3/*.h` (+ https://wiki.libsdl.org/SDL3/), sokol: the comment block at
   the top of each `sokol_*.h` (link flags, backends, usage), clay `README.md` + `clay.h`. Examples:
   https://github.com/libsdl-org/SDL/tree/main/examples, https://github.com/floooh/sokol-samples, clay `examples/`.
+- The reference library holds these sources at the validated pins (`sdl3-source`, `sokol-source`, `sokol-odin-source`,
+  `clay-source-v014`, `clay-source-main`; Odin's `vendor:sdl3` in `odin-source`): `library_search` returns each
+  declaration with its doc comment and file:line, e.g. `library_search query="SDL_CreateGPUDevice" sources=["sdl3-source"]`.
 
 ## Which one
 

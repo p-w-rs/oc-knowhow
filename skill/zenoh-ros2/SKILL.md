@@ -7,7 +7,9 @@ description: Connect Zenoh applications to ROS 2 systems — rmw_zenoh (RMW_IMPL
 
 The user's systems are Zenoh-first; ROS 2 is something to interface with. Read the **zenoh** skill first (sessions,
 key expressions, routers). Recording either side to files: **mcap**. Environments: **pixi**. Ports, firewalls,
-tunnels: **c-networking**.
+tunnels: **c-networking**. The reference library holds `rmw-zenoh-source` (docs/design.md: key expressions,
+liveliness, attachment format, QoS; default configs), `zenoh-ros2dds-source` (bridge README, DEFAULT_CONFIG.json5,
+key mapping), `rosbag2-mcap-source` and the `ros2-docs-lyrical` link: `library_search` them before writing mappings.
 
 ## 0. Versions and install (as of 13 Nov 2026, verify)
 

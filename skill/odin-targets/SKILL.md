@@ -10,7 +10,9 @@ QEMU `virt` aarch64 (PL011 UART), QEMU `mps2-an385` (Cortex-M3) and `mps2-an386`
 interrupts, QEMU `virt` riscv64 in machine mode with CLINT timer interrupts, as a freestanding object linked into C programs, as `wasi_wasm32` under wasmtime, as a
 `freestanding_wasm32` library, and as a `js_wasm32` WebGL page in Chrome. Targets and runtime behavior change between
 releases: run `odin build . -target:"?"` and read `base/runtime/os_specific_freestanding.odin`,
-`base/runtime/procs.odin`, `core/sys/wasm/README.md` for your tag. Verify; don't trust these.
+`base/runtime/procs.odin`, `core/sys/wasm/README.md` for your tag. Verify; don't trust these. The reference library
+holds those files at dev-2026-11a: `library_search query="freestanding default allocator" sources=["odin-source"]`;
+for zenoh-pico on an MCU see `zenoh-pico-source`.
 
 ## Targets (`-target:"?"`, dev-2026-11a)
 
