@@ -15,8 +15,10 @@ API reference: https://docs.pola.rs/api/python/stable/ (Rust: https://docs.rs/po
 
 - **Python Polars 2.1.0** (2026-10-25; 2.0.0 on 2026-10-06). conda-forge `polars` 2.1.0. Rust crate **`polars`
   0.55.2** (2026-08-06): the crate is versioned separately and lags the Python release.
-- **cudf-polars-cu13 / -cu12 26.10.2** (PyPI; conda channel `rapidsai`) requires **`polars>=1.35,<1.45`**: the GPU
-  engine does **not** work with Polars 2.x yet. Use a separate Pixi environment with `polars==1.44.2` (§9).
+- **cudf-polars-cu13 / -cu12 26.10.2** (latest stable; PyPI, conda channel `rapidsai`) requires
+  **`polars>=1.35,<1.45`**. The **27.02 nightlies** (`27.2.0a56`, index
+  `https://pypi.anaconda.org/rapidsai-wheels-nightly/simple`, conda `rapidsai-nightly`) require `polars>=2.0,<2.2`
+  and worked with Polars 2.1.0. Until 27.02 is released: a stable env pinned to `polars==1.44.2`, or the nightly (§9).
 - Read the upgrade guide when porting: `docs/source/releases/upgrade/2.md` in the repo
   (https://docs.pola.rs/releases/upgrade/2/). Removed APIs raise `AttributeRemovedError`/`ArgumentRemovedError`
   with the replacement in the message.
@@ -189,26 +191,75 @@ separator=" ", include_header=False)` then `plot "x.dat" using 1:2 with lines`. 
 ## 9. GPU engine (cudf-polars)
 
 ```toml
-# pixi.toml: separate environment, Polars pinned to what cudf-polars accepts
+# pixi.toml (tested on 2P: RTX PRO 6000 Blackwell 96 GB, driver 580, CUDA 13.0)
 [workspace]
+channels = ["conda-forge"]
 platforms = [{ name = "linux-64-cuda", platform = "linux-64", cuda = "13" }]
-[feature.gpu.pypi-dependencies]
+[dependencies]
+python = "3.12.*"
+[feature.stable.pypi-dependencies]          # RAPIDS 26.10: Polars 1.x only
 polars = "==1.44.2"
 cudf-polars-cu13 = "==26.10.2"
+[feature.nightly.pypi-dependencies]         # RAPIDS 27.02 nightly: Polars 2.x
+polars = "==2.1.0"
+cudf-polars-cu13 = "==27.2.0a56.post261114022422"
+[feature.nightly.pypi-options]
+extra-index-urls = ["https://pypi.anaconda.org/rapidsai-wheels-nightly/simple"]
+prerelease-mode = "allow"
+index-strategy = "unsafe-best-match"
 [environments]
-gpu = ["gpu"]
+stable = ["stable"]
+nightly = ["nightly"]
 ```
-- `q.collect(engine="gpu")` or `engine=pl.GPUEngine(device=0, raise_on_fail=True)`; lazy API only; also
-  `sink_*`. `engine="gpu"` **falls back to the CPU silently** (no warning seen) for unsupported plans;
-  use `raise_on_fail=True` while developing to see `NotImplementedError: … unsupported operations`.
-- Not supported (26.10): `Categorical` columns (`dtype=Categorical conversion not supported`; cast to String),
-  `map_elements`/Python UDFs.
-- Measured on an RTX 5090 that had only ~3.4 GB free (other processes held 29 GB), 10M rows, warm: filter +
-  group_by CPU-streaming 0.029 s vs GPU 1.72 s; sort + head 0.052 vs 0.096 s; truncate + group_by 0.051 vs
-  0.075 s; join 0.080 vs 0.163 s. Results matched CPU within float tolerance. 300M rows failed:
-  `MemoryError: Try lowering target_partition_size … and/or RAPIDSMPF_SPILL_DEVICE_LIMIT`. On a free GPU and
-  bigger scans the balance shifts; measure with your query (cold start includes CUDA init and file reads). The
-  CPU streaming engine is a hard baseline to beat on a 24-core machine.
+Both installed in < 3 min. The nightly's results matched the CPU engine (floats to ~1e-15).
+
+**Engine options** (`pl.GPUEngine(device=0, memory_resource=…, raise_on_fail=…, executor=…, executor_options={…})`):
+- `executor` defaults to **`"streaming"`** (cudf-polars' partitioned executor: `max_rows_per_partition` 1M,
+  `target_partition_size` ≈ min(1.5 GB, 2.5 % of VRAM), spills over `RAPIDSMPF_SPILL_DEVICE_LIMIT` 80 %).
+  `executor="in-memory"` runs the whole plan as single cuDF tables: fastest when it fits, `MemoryError` when not.
+- Default memory: CUDA async pool; a shared GPU needs a cap:
+  `import rmm; mr = rmm.mr.LimitingResourceAdaptor(rmm.mr.CudaAsyncMemoryResource(), 34 << 30)` →
+  `memory_resource=mr`. Over the cap: `MemoryError: std::bad_alloc: out_of_memory … Exceeded memory limit`.
+- Env: `CUDF_POLARS__EXECUTOR__FALLBACK_MODE=warn|raise|silent` (streaming ops that can't be partitioned fall
+  back to one partition; warned as `This selection is not supported for multiple partitions.` on a full sort),
+  `CUDF_POLARS__EXECUTOR__TARGET_PARTITION_SIZE`, `POLARS_GPU_ENABLE_CUDA_MANAGED_MEMORY`.
+
+**Detecting CPU fallback** (tested): `engine="gpu"` or `GPUEngine(raise_on_fail=False)` on an unsupported plan
+returns the CPU result **with no Python warning**; only with `POLARS_VERBOSE=1` does a `UserWarning: Query
+execution with GPU not possible: unsupported operations. The errors were: …` appear. Use
+`raise_on_fail=True` in tests and CI (`ComputeError: 'cuda' conversion failed: NotImplementedError: …`).
+Not supported (27.02a56, same in 26.10): **`join_asof`** (`Unsupported join type ('AsOf', 'backward', …)`),
+**`rolling_*_by`** (`No handler for Expr function node with name=RollingFunctionBy.MeanBy`; the
+`.rolling("ts", period=…)` context and `rolling_mean(n)` work), **Categorical/Enum** group/sort keys (`Grouping by
+Categorical/Enum keys is not supported`; cast to String), `map_elements`/Python UDFs.
+
+**Benchmarks** (2P: 112 cores, 503 GB RAM; GPU shared with another job, capped at 34 GB; synthetic sensor log,
+9 columns, 10M rows per zstd Parquet file, 346 MB each; warm second run, seconds, `scan_parquet` → result
+including the read):
+
+| Query | 50M: CPU stream / GPU in-mem / GPU stream | 200M | 500M (17 GB Parquet) |
+|---|---|---|---|
+| filter + group_by 8 keys | **0.11** / 0.25 / 12.7 | **0.24** / 1.11 / 65.0 | **0.54** / OOM / 77.1 |
+| filter + group_by 1M keys | **0.12** / 0.39 / 0.55 | **0.40** / 1.19 / 1.75 | **0.82** / OOM / 1.62 |
+| join 1M-row dim + group_by | **0.17** / 0.47 / 0.64 | **0.45** / 1.11 / 1.16 | **1.14** / 1.29 / 1.24 |
+| join large × large (N × N/2) | **0.20** / 0.30 / 0.46 | **0.79** / 1.03 / 1.39 | **1.65** / OOM / 1.99 |
+| sort 3 cols by (key, id) | 0.84 / **0.50** / 0.85 | 4.69 / **1.46** / 1.74 | 8.61 / 2.82 / **2.76** |
+| sort + group_by_dynamic 1 s × topic | 2.62 / **1.10** / 1.99 | 8.89 / **3.06** / 5.43 | 20.1 / OOM / **8.84** |
+| `.rolling("ts", "10ms")` mean | 1.52 / 0.48 / **0.45** | 4.19 / **0.48** / 0.59 | 8.59 / **1.13** / **1.13** |
+| str.contains/extract/slice/upper + group_by | **0.25** / 0.57 / 1.20 | 0.66 / **0.51** / 1.05 | 1.25 / **1.13** / 1.34 |
+
+Peak VRAM at 500M: streaming 10–32 GB, in-memory 24–34 GB (OOM above the cap). CPU streaming peak RSS 5–73 GB
+(the in-memory CPU engine was up to 23× slower than CPU streaming, equal on strings, faster only on rolling). First run +1.2–1.5 s (GPU
+init + Parquet metadata). From a DataFrame already in RAM, GPU times *rise* (host→device copy each collect: 200M
+sort 2.6 s in-memory, 14 s streaming), so give the GPU engine `scan_parquet`, not `df.lazy()`.
+
+When the GPU wins: **sort-heavy and window work** (sort, `group_by_dynamic`, rolling context: 3–8× faster than
+CPU streaming at 200M–500M rows). It ties on strings and joins and **loses on aggregations**: the CPU streaming
+engine does a filter + group_by over 500M rows from Parquet in 0.5 s. The cudf streaming executor was
+**pathological on a low-cardinality group_by** (65–77 s; stable 26.10 also 40 s at 200M), so use
+`executor="in-memory"` when the data fits in ~⅓ of free VRAM, and streaming above that. At 10M rows the GPU never
+won. Stable 26.10 + Polars 1.44 at 200M: similar (sort 1.34 in-mem, joins 0.59). Measure your own query with
+`raise_on_fail=True`.
 
 ## 10. SQL and Rust
 
@@ -234,4 +285,5 @@ gpu = ["gpu"]
 - Building frames row by row (`vstack` in a loop, `pl.concat` of 1-row frames) is quadratic: collect lists first.
 - `pl.read_csv` infers types from the first rows; pass `schema_overrides` or `infer_schema_length=None`.
 - `to_numpy()` on a column with nulls copies and turns ints into floats.
-- GPU env: never let the solver pick an old Polars silently — pin it (cudf-polars bounds the version).
+- GPU env: never let the solver pick an old Polars silently — pin it (cudf-polars bounds the version); test with
+  `raise_on_fail=True` (fallback is silent); cast Categoricals to String; no `join_asof` on GPU.

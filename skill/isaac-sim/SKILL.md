@@ -1,6 +1,6 @@
 ---
 name: isaac-sim
-description: Run NVIDIA Isaac Sim 6.x (Kit 110, Omniverse RTX) and Isaac Lab 3.x — pip install via Pixi (Python 3.12, glibc 2.35+, pypi.nvidia.com index strategy, torch cu130, EULA env, libxml2 fix), GPU/driver requirements and VRAM checks, headless standalone scripts (SimulationApp, isaacsim.core.experimental stage/app utils, SimulationManager, Articulation, GroundPlane), USD basics (stage, prims, references, variants, units/up-axis, physics schemas, articulation roots), URDF/MJCF importers (URDFImporter, Physics variant sets), RTX cameras (RtxCamera + CameraSensor annotators), RTX lidar, ROS 2 bridge (OmniGraph, bundled ROS libs), livestream/WebRTC, Replicator synthetic data, containers (nvcr.io/nvidia/isaac-sim), Newton vs PhysX backends, Isaac Lab training (uv run isaaclab train), startup/shader-cache timings, typical errors and the bundled agent skills. Load before installing, scripting or debugging Isaac Sim or Isaac Lab.
+description: Run NVIDIA Isaac Sim 6.x (Kit 110, Omniverse RTX) and Isaac Lab 3.x — pip install via Pixi (Python 3.12, glibc 2.35+, pypi.nvidia.com index strategy, torch cu130, EULA env, libxml2 fix), GPU/driver requirements and VRAM checks, headless standalone scripts (SimulationApp, isaacsim.core.experimental stage/app utils, SimulationManager, Articulation, GroundPlane), USD basics (stage, prims, references, variants, units/up-axis, physics schemas, articulation roots), URDF/MJCF importers (URDFImporter, Physics variant sets), RTX cameras (RtxCamera + CameraSensor annotators), RTX lidar, ROS 2 bridge (bundled Jazzy/Humble libs, env before launch, graph_api helpers for clock/joint states/camera, joint commands back in, RoboStack client, zenoh-bridge-ros2dds), livestream/WebRTC, Replicator synthetic data, containers (nvcr.io/nvidia/isaac-sim), Newton vs PhysX backends and physics= presets, Isaac Lab 3 training and play via Pixi (isaaclab train/play --rl_library rsl_rl, dependency overrides, task names, tensorboard scalars, --video, measured steps/s and VRAM), startup/shader-cache timings, typical errors and the bundled agent skills. Load before installing, scripting or debugging Isaac Sim or Isaac Lab.
 ---
 
 # Isaac Sim 6 and Isaac Lab 3
@@ -20,7 +20,7 @@ https://docs.isaacsim.omniverse.nvidia.com/latest/. `library_search` them for AP
 |---|---|
 | Isaac Sim | **6.2.0** (PyPI `isaacsim==6.2.0.0`, 13 Oct 2026; GitHub tag `v6.2.0`; `v7.0.0a1` pre-release). Kit 110. 5.1 was the last 5.x. Source on GitHub (Apache-2.0 for the repo; Kit/RTX/PhysX binaries under the NVIDIA Omniverse EULA). |
 | Python | **3.12 only** (`==3.12.*`); wheels `manylinux_2_35` x86_64/aarch64 + Windows → **glibc ≥ 2.35**. |
-| GPU/driver | RTX GPU (no GTX/Tesla-without-RTX for rendering); Linux driver ≥ 595.58.03 per the 6.2 requirements page; Ubuntu 22.04/24.04 supported (22.04 deprecated). Ran fine on Arch (glibc 2.44, driver 615.78) with the fixes below. |
+| GPU/driver | RTX GPU (no GTX/Tesla-without-RTX for rendering); the 6.2 requirements page lists Linux driver 595.58.03, Isaac Lab 3.0 docs require only **≥ 580.65.06** (torch cu130). **Tested: 580.159.03 runs Isaac Sim 6.2 + Isaac Lab 3.0 fine** (Ubuntu 24.04, RTX PRO 6000 Blackwell: training, RTX video, ROS 2 bridge); also Arch (glibc 2.44, driver 615.78). Ubuntu 22.04/24.04 supported (22.04 deprecated). |
 | Isaac Lab | **3.0.0** (PyPI `isaaclab`, tag `v3.0.0`), targets Isaac Sim 6.2, Python 3.12, torch 2.11.0, BSD-3 (mimic: Apache-2.0). Multi-backend: PhysX, Newton, OvPhysX; some workflows run **without** Isaac Sim (Newton). |
 | Bundled agent skills | `site-packages/isaacsim/skills/` (~45 SKILL.md: headless deployment, camera, sensors, ROS 2 bridge, URDF/MJCF→USD, physics, troubleshooting, web viewer…) and Isaac Lab `skills/user/*` in the repo. Read them: they track Kit 110 APIs. |
 
@@ -134,28 +134,116 @@ Dof order is per joint type (4 hips, 4 thighs, 4 calves), not the URDF order: al
   tenths of a scene unit.
 - RTX lidar/radar: `isaacsim.sensors.experimental.rtx` lidar classes with configs in `SUPPORTED_LIDAR_CONFIGS`
   (vendor profiles); PhysX raycast lidar is the cheap alternative. Contact/IMU sensors: `isaacsim.sensors.experimental.physics` (old `isaacsim.sensors.physics`).
-- ROS 2 bridge (`isaacsim.ros2.bridge`, extra `ros2`): OmniGraph nodes `ROS2PublishClock`, `…JointState`,
-  `…Image`, `…CameraInfo`, `…PointCloud`, `…TransformTree`, `ROS2SubscribeTwist`, … active **only while playing**.
-  Without a sourced ROS (`ROS_DISTRO` unset) it falls back to ROS 2 libs bundled in `isaacsim.ros2.core`; source `/opt/ros/<distro>/setup.bash` (custom
-  messages, `RMW_IMPLEMENTATION=rmw_zenoh_cpp`, see **zenoh-ros2**) in the parent shell **before** launch; never patch
-  `LD_LIBRARY_PATH` in a running process. Publish `/clock` and set `use_sim_time` on ROS nodes.
+- ROS 2: see section 6 (tested).
 - Remote viewing: `isaacsim isaacsim.exp.full.streaming --no-window` + the Isaac Sim WebRTC Streaming Client (native
   app) or the web viewer stack (Chromium, `http://HOST:8210`); WebRTC needs UDP reachability (firewalls/VPN; use an SSH
   or WireGuard tunnel only for signalling, media still needs UDP). Over plain ssh, render to files instead.
 - Replicator (`omni.replicator.core as rep`): randomize poses/lights/materials per frame (`rep.trigger.on_frame`),
   writers (`BasicWriter`, KITTI, COCO) for labeled datasets (see **datasets** for curation).
 
-## 6. Isaac Lab 3 (not run here; from the v3.0.0 repo)
+## 6. ROS 2 bridge (tested: Go2 + clock/joint states/camera out, joint commands in, Zenoh)
 
-- Install: from a checkout with uv (`uv run isaaclab …`, the docs-recommended route), pip `isaaclab` + `isaacsim`, or
-  `./isaaclab.sh -i` (legacy, Newton-only default). It pins `torch==2.11.0`, `warp-lang==1.17.0`: use a dedicated env.
-- Train/play: `uv run isaaclab train --task Isaac-Cartpole [--rl_library rsl_rl|skrl|rl_games|sb3] --num_envs 4096`,
-  `uv run isaaclab play --task …` (the old `scripts/reinforcement_learning/*/train.py` are deprecated); headless is the
-  default (add `--viz` for a viewer); lower `--num_envs` for camera tasks (camera support is automatic; pick a compatible renderer). Multi-GPU: `train_multigpu.py` / torchrun.
-- Backends: PhysX (Isaac Gym-like behavior), Newton (MuJoCo-Warp based, can run without Isaac Sim), OvPhysX; choose
-  per task with presets. Migration guides: `skills/user/migrate-2x-to-3x`, `migrate-from-isaac-gym`.
+- **Bundled ROS**: `isaacsim.ros2.core/{humble,jazzy}/lib` (rclpy, std/sensor/geometry/nav/tf2 msgs,
+  `rmw_fastrtps_cpp`, `rmw_cyclonedds_cpp`; no rmw_zenoh). With `ROS_DISTRO` unset it picks by Ubuntu version (22→humble,
+  24→jazzy; other distros: error + humble) and logs `Attempting to load internal rclpy for ROS Distro: jazzy`. The zip's
+  `python.sh` sources `setup_ros_env.sh`; **the pip/Pixi install does not**: export the env yourself before Python starts:
+  ```bash
+  EXT=$PWD/.pixi/envs/default/lib/python3.12/site-packages/isaacsim/exts/isaacsim.ros2.core   # in the workspace
+  export ROS_DISTRO=jazzy RMW_IMPLEMENTATION=rmw_fastrtps_cpp ROS_DOMAIN_ID=77
+  export LD_LIBRARY_PATH=${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$EXT/jazzy/lib
+  env -u DISPLAY pixi run python ros_bridge.py
+  ```
+  System ROS instead (custom msgs, `rmw_zenoh_cpp`, see **zenoh-ros2**): source `/opt/ros/<distro>/setup.bash` in the
+  parent shell first; never patch `LD_LIBRARY_PATH` in a running process.
+- **Graphs from Python** (`isaacsim.ros2.nodes` helpers build the OmniGraph; topics tick **only while playing**):
+  ```python
+  app_utils.enable_extension("isaacsim.ros2.bridge"); app.update()     # after SimulationApp, before importing below
+  from isaacsim.ros2.nodes import (Ros2ClockGraphConfig, Ros2JointStatesGraphConfig, Ros2CameraGraphConfig,
+      create_ros2_clock_graph, create_ros2_joint_states_graph, create_ros2_camera_graph)
+  create_ros2_clock_graph(Ros2ClockGraphConfig())                       # /clock (sim time)
+  create_ros2_joint_states_graph(Ros2JointStatesGraphConfig(articulation_root=root, publish_joint_states=True,
+      subscribe_joint_states=True, subscribe_topic="/joint_command", move_robot_on_subscribe=True))
+  create_ros2_camera_graph(Ros2CameraGraphConfig(camera_prim="/World/Cam", frame_id="cam", rgb_topic="/rgb",
+      publish_depth=False))                                             # + /camera_info; any UsdGeom.Camera works
+  SimulationManager.setup_simulation(dt=1/200, device="cuda"); app_utils.play()
+  while running: app_utils.update_app()
+  ```
+  Also `Ros2{Tf,Odometry,RtxLidar,RtxRadar}GraphConfig`. Hand-built: `og.Controller.edit` with `isaacsim.ros2.bridge.
+  ROS2Publish*`/`ROS2Subscribe*`/`ROS2CameraHelper` nodes (repo `standalone_examples/api/isaacsim.ros2.bridge/*.py`).
+- **Measured** (Go2, RTX on, shared GPU): topics `/clock /joint_states /joint_command /rgb /camera_info`; one message
+  per app frame → 8.4 Hz clock/joint_states, 4.1 Hz rgb at 7–8 app fps; `/rgb` is **1280×720 rgb8** (2.76 MB; the
+  helper's render product ignores the app width/height); one app update = 1/60 s sim time; joint names in Isaac dof
+  order (4 hips, 4 thighs, 4 calves); sim time in `header.stamp`. Warning `Forcing fy to fx` = non-square aperture.
+- **Client via Pixi RoboStack** (same distro): channels `https://prefix.dev/robostack-jazzy` + conda-forge,
+  `ros-jazzy-ros-core ros-jazzy-ros2topic ros-jazzy-sensor-msgs ros-jazzy-rmw-fastrtps-cpp` (5 s, 0.6 GB). `ros2 topic
+  list/hz/echo --once /joint_states` and an rclpy node work; commands: publish `sensor_msgs/JointState(name=[…12],
+  position=[…])` on `/joint_command` → the robot's PD targets follow (FL_hip −0.003 → 0.412 rad).
+- **Zenoh**: `zenoh-bridge-ros2dds` (not on conda-forge/RoboStack; GitHub release `…-x86_64-unknown-linux-gnu-
+  standalone.zip`, v1.10.2): `ROS_DISTRO=jazzy ./zenoh-bridge-ros2dds -d 77 -l tcp/127.0.0.1:7448
+  --no-multicast-scouting` (without `ROS_DISTRO` it assumes "iron"). Routes appear as `ROS:/rgb -> Zenoh:rgb`,
+  `Zenoh:joint_command -> ROS:/joint_command`; payloads are CDR (rgb 2 764 848 B). A plain `eclipse-zenoh` client got
+  all topics at full rate and drove the robot with a hand-encoded CDR JointState on key `joint_command`.
+- **Pitfall (cost a hang)**: a busy `ROS_DOMAIN_ID` on a shared LAN (domain 42 carried someone's Open-RMF stack and a
+  foreign 100 Hz `/clock`) gave wrong `hz` numbers, and the Isaac process stalled in that run (fine on an empty
+  domain). Check `ros2 topic list` first and pick a private id. Call `ros2` via `pixi run` (else `AMENT_PREFIX_PATH` warning).
 
-## 7. Typical errors (found or documented)
+## 7. Isaac Lab 3 (tested: Pixi install, Cartpole + Go2 training, play with video)
+
+- **Pixi install** (4 min, 25 GB env; same platform/libxml2/EULA/index settings as section 1). `isaaclab[isaacsim]`
+  is **unsatisfiable without overrides** (`isaacsim-kernel==6.2.0.0` pins `urllib3==2.7.0`, isaaclab needs ≥ 2.8.0);
+  mirror the repo's `[tool.uv].override-dependencies`:
+  ```toml
+  [pypi-options]
+  extra-index-urls = ["https://pypi.nvidia.com"]
+  index-strategy = "unsafe-best-match"
+  prerelease-mode = "allow"
+  [pypi-options.dependency-overrides]      # = IsaacLab v3.0.0 pyproject [tool.uv].override-dependencies
+  numpy = ">=2"
+  mujoco = "~=3.12.0"
+  mujoco-warp = "~=3.12.0"
+  newton = "==1.6.1"
+  newton-usd-schemas = ">=0.5.0"
+  usd-exchange = "==3.0.1"
+  usd-optimize = "~=1.3.1"
+  torch = "==2.11.0"
+  torchvision = "==0.26.0"
+  fsspec = ">=2026.6.0"
+  packaging = ">=20,<27"
+  urllib3 = ">=2.8.0"
+  [pypi-dependencies]
+  torch = { version = "==2.11.0", index = "https://download.pytorch.org/whl/cu130" }
+  torchvision = { version = "==0.26.0", index = "https://download.pytorch.org/whl/cu130" }
+  isaaclab = { version = "==3.0.0", extras = ["isaacsim", "rsl-rl", "video"] }   # also skrl, rl-games, sb3, all
+  ```
+  Gives isaacsim 6.2.0.0, warp-lang 1.17.0, newton 1.6.1, rsl-rl-lib 5.5.1. Other routes: `uv run --extra isaacsim
+  isaaclab …` in a checkout (docs-recommended), `uv pip install isaaclab==3.0.0 --index https://pypi.nvidia.com
+  --torch-backend cu130`, `./isaaclab.sh -i`.
+- **Tasks**: `isaaclab list_envs` (140 tasks). 3.0 names have **no `-v0`**: `Isaac-Cartpole-Direct`, `Isaac-Cartpole`,
+  `Isaac-Velocity-Flat-UnitreeGo2`, `Isaac-Velocity-Flat-AnymalD`, `…-G1`, `…-H1`; Anymal-C moved to
+  `IsaacContrib-Velocity-Flat-AnymalC-Direct`. `isaaclab train --rl_library rsl_rl --task X --help` lists flags and
+  the task's presets: `physics=isaacsim_physx|physx|newton_mjwarp|newton_kamino|ovphysx`, `renderer=…`, `presets=…`.
+- **Train** (headless by default; logs under `./logs/rsl_rl/<experiment>/<timestamp>/`, checkpoints every 50 it):
+  ```bash
+  env -u DISPLAY pixi run isaaclab train --rl_library rsl_rl --task Isaac-Cartpole-Direct --num_envs 4096 \
+      --max_iterations 300 --seed 42 physics=isaacsim_physx
+  ```
+  | Task (4096 envs, 300 it, RTX PRO 6000, shared) | Wall | steps/s | Reward | VRAM / RSS |
+  |---|---|---|---|---|
+  | Isaac-Cartpole-Direct | 4 min 11 s | mean 106 k | −3.9 → 4.93 plateau by it 40 | 5.2 GB / 5.2 GB |
+  | Isaac-Velocity-Flat-UnitreeGo2 | 13 min 50 s | 13 k (GPU busy) → 81 k | −0.9 → −20 (it 45) → 26.5; ep len 960 | 4.4 GB / 7.7 GB |
+  The Go2 dip (it 0–45) recovered by itself: judge locomotion runs after a few hundred iterations. Scalars in tfevents:
+  `Train/mean_reward`, `Train/mean_episode_length`, `Perf/total_fps`, `Loss/*`; dump with
+  `tensorboard.backend.event_processing.event_accumulator.EventAccumulator(run, size_guidance={"scalars": 0})` and
+  plot with **gnuplot** (`set terminal … noenhanced`, else `rsl_rl` renders as a subscript).
+- **Play + video**: `isaaclab play --rl_library rsl_rl --task Isaac-Cartpole-Direct --num_envs 16 --video
+  --video_length 200 physics=isaacsim_physx` loads the latest run's last checkpoint (`--checkpoint` to pick), injects
+  a headless Kit visualizer itself (no `--enable_cameras` flag in 3.0), writes `videos/play/clip_model_299_0000.mp4`
+  (1280×720; 200 frames at 60 fps for Cartpole, 300 at 50 fps for Go2, which walked with its command arrows) and
+  `exported/policy.{pt,onnx}` (→ **ml-deploy**), then exits. First play took 7 min (RTX shader warm-up); the next one 1 min 11 s.
+- Backends: PhysX (Isaac Gym-like), Newton (MuJoCo-Warp, can run without Isaac Sim), OvPhysX (kit-less). Multi-GPU:
+  `isaaclab train_multigpu`. Migration guides: `skills/user/migrate-2x-to-3x`, `migrate-from-isaac-gym`.
+
+## 8. Typical errors (found or documented)
 
 | Symptom | Fix |
 |---|---|
@@ -168,6 +256,10 @@ Dof order is per joint type (4 hips, 4 thighs, 4 calves), not the URDF order: al
 | Vulkan/driver errors (`VkResult`, no ICD) | `vulkaninfo`; `/usr/share/vulkan/icd.d/nvidia_icd.json` must exist; containers need `NVIDIA_DRIVER_CAPABILITIES=all` |
 | CUDA OOM | `nvidia-smi`; fewer envs/cameras, lower resolution, `{"renderer": None}`/`--/app/renderer/enabled=false` for physics-only |
 | `omni.isaac.*` import errors | port to `isaacsim.*` / `isaacsim.core.experimental.*` (migration guides) |
+| `isaaclab[isaacsim]==3.0.0 … depends on urllib3==2.7.0 … unsatisfiable` | `[pypi-options.dependency-overrides]` as in section 7 |
+| `NameNotFound: Environment Isaac-Velocity-Flat-Anymal-C doesn't exist` | 3.0 names: no `-v0`, `…-AnymalD`, `…-UnitreeGo2`; `isaaclab list_envs` |
+| `ROS2 Bridge startup failed` / rclpy symbols missing (pip install) | export `ROS_DISTRO`, `RMW_IMPLEMENTATION`, `LD_LIBRARY_PATH=…/isaacsim.ros2.core/<distro>/lib` before launch |
+| Foreign topics, odd rates, bridge stalls | shared `ROS_DOMAIN_ID`: pick an empty one |
 
-Cleanup after experiments: the env (23 GB), the Pixi/uv package cache, `~/.cache/ov`, `~/.local/share/ov`,
+Cleanup after experiments: the env (23–25 GB), `logs/` (checkpoints, videos), the Pixi/uv package cache, `~/.cache/ov`, `~/.local/share/ov`,
 `~/.nvidia-omniverse`, `/dev/shm/carb-*` leftovers after crashes.

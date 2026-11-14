@@ -1,6 +1,6 @@
 [workspace]
 name = "oc-knowhow"
-version = "1.6.0"
+version = "1.6.1"
 description = "Expert know-how for OpenCode agents: data science (incl. Arrow, Polars), figures, ML, Odin, robotics (Zenoh, ROS 2, MCAP, Rerun, dora, simulators, OpenCV, robot math, MCUs), C libraries; a private reference library (books, papers, source code) with citations"
 channels = ["conda-forge"]
 platforms = ["osx-arm64", "osx-64", "linux-64", "linux-aarch64"]

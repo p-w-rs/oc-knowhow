@@ -218,8 +218,54 @@ For MCAP/ROS tooling, convert in a node: see **mcap**.
   `path: producer.py` failed (`failed to resolve node source consumer.py … Could not find source path consumer.py within
   uv`), because named daemons run nodes from `<cwd>/_work/<uuid>/`. Use absolute paths or `deploy.working_dir`. After the fix
   592/592 messages arrived over the daemon path (`remote node(s) [producer] have no routable zenoh endpoint`) at p50 6.6 ms
-  per 800 KB, versus 0.59 ms in SHM. Cross-machine wasn't tested here (powerslabs blocks inbound connections, and agx-01
-  can't reach it). Check `RUST_LOG=dora_daemon=debug` for `resolved 1/1 remote node zenoh endpoints`.
+  per 800 KB, versus 0.59 ms in SHM. Check `RUST_LOG=dora_daemon=debug` for `resolved 1/1 remote node zenoh endpoints`.
+
+**Tested recipe, two Linux hosts on one LAN** (v1.1.0, 1 GbE, ping 0.27 ms; same Pixi env and absolute paths on both):
+```sh
+# 0. ports: listen on one host (nc -lk 6013), probe from the other (nc -zv -w3 <ip> 6013), both directions
+# host A 10.0.0.1 (coordinator + named daemon; `dora up` would give an UNnamed daemon)
+pixi run dora coordinator --interface 10.0.0.1          # "WS server listening on port 6013"
+pixi run dora daemon --coordinator-addr 10.0.0.1 --machine-id p2
+# host B
+pixi run dora daemon --coordinator-addr 10.0.0.1 --machine-id p3
+#   → "zenoh listener binding 10.0.0.2 (derived from coordinator address 10.0.0.1:6013)" (random TCP port)
+# any host
+DORA_COORDINATOR_ADDR=10.0.0.1 pixi run dora start flow.yml --name x --attach   # logs of both machines stream here
+```
+```yaml
+  - id: producer
+    deploy: { machine: p3 }                    # v1.1 key is `deploy`, not `_unstable_deploy`
+    path: /home/me/app/producer.py              # resolved on p3
+```
+- Needed: TCP 6013 to the coordinator and TCP between the hosts on **random** ports (daemon zenoh listener and every
+  node with a remote consumer). If you must open a firewall, fix the ports: `--zenoh-listen <ip>:5456` on daemons.
+  Multicast is not needed.
+- Data path: the producer node on B listens on B's LAN address and the consumer on A dials it (`1065288 B -> zenoh
+  direct path`); the daemons are not in the data path, no SHM across hosts.
+- 1 MiB float64 per message (Python nodes, consumer acks every message):
+
+| Placement | one-way p50 / p90 | round trip p50 | throughput, 4 in flight |
+|---|---|---|---|
+| same host (SHM), A / B | 0.87 / 1.1 ms, 0.74 / 1.24 ms | 1.6 / 1.4 ms | 6.8 / 7.7 GB/s |
+| B → A over 1 GbE | **7.5 / 8.4 ms** | 11.5 ms | **110 MB/s** (line rate), one-way 31 ms when saturated |
+
+  At line rate **3/1000 messages were lost** (and 1/1000 even on one host): direct-path puts use
+  `CongestionControl::Drop`. A sender that waits for acks must time out (mine hung until I added a 2 s timeout).
+  Budget ~8 ms per MiB per GbE hop, and send fewer bytes (compress, downsample) across machines.
+- **A daemon dies** (SIGKILL of B's daemon mid-run): the coordinator logs `daemon WS connection closed` and `Daemon
+  p3-<uuid> exited`, and A's daemon logs `peer daemon disconnected`. But `dora list` still shows the dataflow
+  **Running**, the producer process on B stays alive as an **orphan** (without timer ticks, so it sends nothing),
+  and the consumer just stops receiving. A restarted daemon registers with a **new UUID** ("reports 0 running
+  dataflow(s)") and does not adopt the old dataflow. Recovery: `dora stop <name>` (it finished cleanly), kill
+  orphaned node processes on B by hand, then `dora start` again (300/300, same latency). `restart_policy` covers node
+  crashes, not daemon loss: run daemons under systemd (`dora cluster up` / `distributed-deployment.md`).
+- **Watching from plain Zenoh**: start both daemons with `DORA_ZENOH_CONFIG_OVERLAY` =
+  `{ connect: { endpoints: ["tcp/10.0.0.1:7450"] } }` and run a Zenoh session listening on 10.0.0.1:7450 (§8). It
+  decoded 300/300 outputs of both nodes, but the producer now sent every 1 MiB twice over the LAN and the consumer's
+  p50 went from 7.5 to 16 ms. Run that session as a **router** (`mode: "router"`) and remote clients can attach to it
+  (a Mac behind VPN NAT that the hosts can't dial). The Mac got only **78/300** messages over the VPN; the
+  router-local subscriber still got 300/300 and the dora consumer was unaffected. Drop congestion control means a
+  slow observer loses messages and doesn't slow down the pipeline, so bridge downsampled data for remote viewers.
 
 ## 8. Reading dora traffic from plain Zenoh (tested)
 
@@ -277,3 +323,5 @@ dora node can open its own `zenoh` session (matching 1.10.x) to bridge selected 
 4. Timers keep graphs alive: `exit_when_nodes_finish: true` or `dora stop`. Drain inputs before you exit on `STOP`.
 5. C nodes read only UInt8 inputs. Named daemons need absolute paths or `deploy.working_dir`.
 6. `dora record/replay` and the ROS 2 bridge need binaries built from the git tag.
+7. Multi-machine: coordinator on a real LAN IP, named daemons, absolute paths, TCP open on random ports (or fix them
+   with `--zenoh-listen`). After a daemon dies: `dora stop`, kill orphan nodes, restart.
