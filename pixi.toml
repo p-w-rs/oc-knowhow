@@ -1,7 +1,7 @@
 [workspace]
 name = "oc-knowhow"
-version = "1.5.3"
-description = "Expert know-how for OpenCode agents: data science, figures, ML, Odin, Zenoh/ROS 2/MCAP, C libraries; a private reference library (books, papers, source code) with citations"
+version = "1.6.0"
+description = "Expert know-how for OpenCode agents: data science (incl. Arrow, Polars), figures, ML, Odin, robotics (Zenoh, ROS 2, MCAP, Rerun, dora, simulators, OpenCV, robot math, MCUs), C libraries; a private reference library (books, papers, source code) with citations"
 channels = ["conda-forge"]
 platforms = ["osx-arm64", "osx-64", "linux-64", "linux-aarch64"]
 
@@ -25,6 +25,7 @@ doctor = { cmd = "node --import tsx scripts/doctor.mjs", depends-on = ["build"] 
 setup-search = { cmd = "node --import tsx scripts/setup-search.mjs", depends-on = ["deps"] }
 examples = { cmd = "node --import tsx scripts/examples.mjs", depends-on = ["deps"] }
 library = { cmd = "node --import tsx scripts/library.mjs", depends-on = ["deps"] }
+versions = { cmd = "node scripts/versions.mjs", depends-on = ["deps"] }
 install = { cmd = "node scripts/install.mjs", depends-on = ["build", "test"] }
 install-dev = { cmd = "node scripts/install.mjs --dev", depends-on = ["build"] }
 uninstall = { cmd = "node scripts/install.mjs --uninstall", depends-on = ["deps"] }

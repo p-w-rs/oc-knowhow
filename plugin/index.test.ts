@@ -58,7 +58,7 @@ test("identity, tools, skills grouped by setting, example path filled in", async
   const h = await host()
   assert.deepEqual([...h.tools.keys()].sort(), ["library_catalog", "library_read", "library_search"])
   const ids = h.skills.map(s => s.id)
-  for (const id of ["datasets", "diagrams", "experiment-design", "field-methods", "gnuplot", "gpu-kernels", "ml-data", "ml-deploy", "ml-metrics", "ml-qat", "ml-training", "ml-tuning", "odin", "odin-performance", "odin-targets", "zenoh", "zenoh-ros2", "mcap", "c-platform", "c-networking", "stats-inference"]) assert.ok(ids.includes(id), `skill ${id} registered`)
+  for (const id of ["datasets", "diagrams", "experiment-design", "field-methods", "gnuplot", "gpu-kernels", "ml-data", "ml-deploy", "ml-metrics", "ml-qat", "ml-training", "ml-tuning", "odin", "odin-performance", "odin-targets", "zenoh", "zenoh-ros2", "mcap", "c-platform", "c-networking", "stats-inference", "arrow", "polars", "rerun", "robot-serialization", "dora", "robot-math", "mcu-tooling", "c-crypto", "c-data", "c-gamedev", "c-perf", "mujoco", "genesis", "isaac-sim", "opencv"]) assert.ok(ids.includes(id), `skill ${id} registered`)
   assert.match(h.skills.find(s => s.id === "gnuplot")!.content, /examples are in: .*examples\/gnuplot/)
   assert.match(await h.system(), /library_search/)
   assert.equal(await h.system({ read: {} }), "", "no hint for agents without the library tools")

@@ -2362,7 +2362,10 @@
         "examples",
         "README.md",
         "CMakeLists.txt",
-        "LICENSE"
+        "LICENSE",
+        "cmake",
+        "src/link",
+        "src/system"
       ],
       "license": "EPL-2.0 OR Apache-2.0",
       "fields": [
@@ -2516,7 +2519,8 @@
         "cpp/mcap/include",
         "cpp/examples",
         "README.md",
-        "LICENSE"
+        "LICENSE",
+        "python/mcap-protobuf-support"
       ],
       "license": "MIT",
       "fields": [
@@ -2592,6 +2596,1565 @@
       ],
       "status": "current",
       "useFor": "per-function docs online (same text as the headers)"
+    },
+    {
+      "id": "rerun-python-source",
+      "title": "Rerun 0.43.2: Python SDK, docs and snippets",
+      "authors": "Rerun",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/rerun-io/rerun/tar.gz/refs/tags/0.43.2",
+      "version": "0.43.2",
+      "paths": [
+        "rerun_py/rerun_sdk/rerun",
+        "docs/content",
+        "docs/snippets/all/archetypes",
+        "docs/snippets/all/howto",
+        "docs/snippets/all/views",
+        "docs/snippets/all/tutorials",
+        "examples/python/mcap",
+        "examples/python/dataframe_query",
+        "examples/python/blueprint",
+        "LICENSE-MIT"
+      ],
+      "license": "MIT OR Apache-2.0",
+      "fields": [
+        "rerun",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "exact archetype signatures, send_columns, sinks, server.Server, RrdReader/McapReader, MCAP message-format tables, CLI reference",
+      "extensions": [
+        ".py",
+        ".pyi"
+      ]
+    },
+    {
+      "id": "rerun-docs",
+      "title": "Rerun documentation",
+      "authors": "Rerun",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://rerun.io/docs",
+      "license": "MIT OR Apache-2.0 (sources in rerun-python-source)",
+      "fields": [
+        "rerun",
+        "robotics"
+      ],
+      "status": "current",
+      "useFor": "browsing the Rerun docs online"
+    },
+    {
+      "id": "flatbuffers-source",
+      "title": "FlatBuffers v25.12.19: docs, C++ headers, Python runtime",
+      "authors": "Google",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/google/flatbuffers/tar.gz/refs/tags/v25.12.19",
+      "version": "v25.12.19",
+      "paths": [
+        "docs/source",
+        "include/flatbuffers",
+        "python/flatbuffers",
+        "reflection/reflection.fbs",
+        "samples/monster.fbs",
+        "LICENSE"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "serialization",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "schema grammar, evolution rules and --conform, flatc flags, binary layout, verifier"
+    },
+    {
+      "id": "flatcc-source",
+      "title": "flatcc 0.6.4 (FlatBuffers for C)",
+      "authors": "dvidelabs",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/dvidelabs/flatcc/tar.gz/refs/tags/v0.6.4",
+      "version": "v0.6.4",
+      "paths": [
+        "README.md",
+        "doc",
+        "include/flatcc",
+        "samples/monster",
+        "CHANGELOG.md",
+        "LICENSE"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "serialization",
+        "c",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "C builder/reader/verifier API"
+    },
+    {
+      "id": "protobuf-docs-source",
+      "title": "protobuf.dev documentation (commit f72a6a6, 13 Nov 2026)",
+      "authors": "Google",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/protocolbuffers/protocolbuffers.github.io/tar.gz/f72a6a648b34e9e098cbce1519bc9c8139105d66",
+      "version": "f72a6a6",
+      "paths": [
+        "content/programming-guides",
+        "content/reference/protobuf",
+        "content/best-practices",
+        "content/editions",
+        "LICENSE"
+      ],
+      "license": "BSD-3-Clause",
+      "fields": [
+        "serialization",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "proto3/editions rules, field numbers, wire format, well-known types, JSON mapping"
+    },
+    {
+      "id": "nanopb-source",
+      "title": "nanopb 0.4.9.3 (Protobuf for microcontrollers)",
+      "authors": "Petteri Aimonen",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/nanopb/nanopb/tar.gz/refs/tags/nanopb-0.4.9.3",
+      "version": "nanopb-0.4.9.3",
+      "paths": [
+        "pb.h",
+        "pb_common.h",
+        "pb_encode.h",
+        "pb_decode.h",
+        "docs",
+        "examples/simple",
+        "examples/network_server",
+        "generator/proto/nanopb.proto",
+        "README.md",
+        "LICENSE.txt"
+      ],
+      "license": "Zlib",
+      "fields": [
+        "serialization",
+        "embedded",
+        "source"
+      ],
+      "status": "current",
+      "useFor": ".options keys, encode/decode API, callbacks, security notes"
+    },
+    {
+      "id": "foxglove-schemas-source",
+      "title": "Foxglove SDK schemas (sdk/v0.31.0)",
+      "authors": "Foxglove",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/foxglove/foxglove-sdk/tar.gz/refs/tags/sdk/v0.31.0",
+      "version": "sdk/v0.31.0",
+      "paths": [
+        "schemas/README.md",
+        "schemas/proto",
+        "schemas/flatbuffer",
+        "schemas/ros2"
+      ],
+      "license": "MIT",
+      "fields": [
+        "serialization",
+        "mcap",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "field lists of PointCloud, FrameTransform, CompressedImage, Log… that Foxglove and Rerun render"
+    },
+    {
+      "id": "arrow-format-source",
+      "title": "Apache Arrow columnar format spec (26.0.1)",
+      "authors": "Apache Arrow",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/apache/arrow/tar.gz/refs/tags/apache-arrow-26.0.1",
+      "version": "apache-arrow-26.0.1",
+      "paths": [
+        "docs/source/format",
+        "format",
+        "LICENSE.txt"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "arrow",
+        "data",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "the columnar format, C Data/Stream/Device interfaces, IPC, Flight, canonical extension types",
+      "extensions": [
+        ".fbs",
+        ".proto"
+      ]
+    },
+    {
+      "id": "arrow-python-docs",
+      "title": "pyarrow user guide (26.0.1)",
+      "authors": "Apache Arrow",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/apache/arrow/tar.gz/refs/tags/apache-arrow-26.0.1",
+      "version": "apache-arrow-26.0.1",
+      "paths": [
+        "docs/source/python",
+        "LICENSE.txt"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "arrow",
+        "python",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "pyarrow: parquet, dataset, ipc, flight, compute, memory, numpy/pandas, dlpack, extension types"
+    },
+    {
+      "id": "nanoarrow-source",
+      "title": "nanoarrow 0.9.0 (C)",
+      "authors": "Apache Arrow",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/apache/arrow-nanoarrow/tar.gz/refs/tags/apache-arrow-nanoarrow-0.9.0",
+      "version": "apache-arrow-nanoarrow-0.9.0",
+      "paths": [
+        "src/nanoarrow",
+        "README.md",
+        "docs/source",
+        "LICENSE.txt"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "arrow",
+        "c",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "exact C signatures: builders, ArrowArrayView, IPC reader/writer; C Data Interface from C and Odin",
+      "exclude": [
+        "src/nanoarrow/thirdparty"
+      ],
+      "extensions": [
+        ".h",
+        ".c"
+      ]
+    },
+    {
+      "id": "arrow-rs-source",
+      "title": "arrow-rs 60.1.0 (selected files)",
+      "authors": "Apache Arrow",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/apache/arrow-rs/tar.gz/refs/tags/60.1.0",
+      "version": "60.1.0",
+      "paths": [
+        "arrow/src/ffi.rs",
+        "arrow/src/ffi_stream.rs",
+        "parquet/src/file/properties.rs",
+        "parquet/src/arrow/arrow_writer/mod.rs",
+        "parquet/src/arrow/arrow_reader/mod.rs",
+        "arrow-flight/src/lib.rs",
+        "README.md",
+        "LICENSE.txt"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "arrow",
+        "rust",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "Rust FFI, Parquet writer/reader options (renamed in 60.x), Flight"
+    },
+    {
+      "id": "polars-guide-source",
+      "title": "Polars user guide and upgrade notes (py-2.1.0)",
+      "authors": "Polars",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/pola-rs/polars/tar.gz/refs/tags/py-2.1.0",
+      "version": "py-2.1.0",
+      "paths": [
+        "docs/source/user-guide",
+        "docs/source/releases/upgrade",
+        "docs/source/src/python/user-guide",
+        "crates/polars-config/src/lib.rs",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "fields": [
+        "polars",
+        "data",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "lazy/streaming, expressions, joins incl. join_asof, time series, GPU, SQL, 2.0 changes; POLARS_* env vars"
+    },
+    {
+      "id": "polars-api-docs",
+      "title": "Polars Python API reference",
+      "authors": "Polars",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://docs.pola.rs/api/python/stable/reference/",
+      "license": "MIT",
+      "fields": [
+        "polars"
+      ],
+      "status": "current",
+      "useFor": "every function and parameter, online"
+    },
+    {
+      "id": "pico-sdk-source",
+      "title": "Raspberry Pi Pico SDK 2.3.1 (headers)",
+      "authors": "Raspberry Pi",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/raspberrypi/pico-sdk/tar.gz/refs/tags/2.3.1",
+      "version": "2.3.1",
+      "paths": [
+        "src/rp2_common",
+        "src/common",
+        "src/boards/include/boards/pico2_w.h",
+        "src/boards/include/boards/pico_w.h",
+        "cmake/preload/toolchains",
+        "README.md",
+        "LICENSE.TXT"
+      ],
+      "license": "BSD-3-Clause",
+      "fields": [
+        "embedded",
+        "mcu",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "API + doc comments (gpio, uart, pio, dma, cyw43_arch, stdio, sync), CMake functions, toolchain flags",
+      "extensions": [
+        ".h"
+      ]
+    },
+    {
+      "id": "pico-examples-source",
+      "title": "pico-examples (sdk-2.3.1)",
+      "authors": "Raspberry Pi",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/raspberrypi/pico-examples/tar.gz/refs/tags/sdk-2.3.1",
+      "version": "sdk-2.3.1",
+      "paths": [
+        "pico_w/wifi",
+        "blink",
+        "hello_world",
+        "uart",
+        "pio",
+        "freertos",
+        "README.md",
+        "LICENSE.TXT"
+      ],
+      "license": "BSD-3-Clause",
+      "fields": [
+        "embedded",
+        "mcu",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "working Wi-Fi/lwIP/FreeRTOS patterns, lwipopts"
+    },
+    {
+      "id": "picotool-source",
+      "title": "picotool 2.3.1",
+      "authors": "Raspberry Pi",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/raspberrypi/picotool/tar.gz/refs/tags/2.3.1",
+      "version": "2.3.1",
+      "paths": [
+        "README.md",
+        "main.cpp",
+        "udev",
+        "LICENSE.TXT"
+      ],
+      "license": "BSD-3-Clause",
+      "fields": [
+        "embedded",
+        "mcu",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "exact CLI options, udev rules",
+      "extensions": [
+        ".cpp"
+      ]
+    },
+    {
+      "id": "probe-rs-source",
+      "title": "probe-rs 0.32.0 (CLI and chip definitions)",
+      "authors": "probe-rs",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/probe-rs/probe-rs/tar.gz/refs/tags/v0.32.0",
+      "version": "v0.32.0",
+      "paths": [
+        "probe-rs-tools/src/bin/probe-rs/cmd",
+        "probe-rs/targets/RP235x.yaml",
+        "probe-rs-espressif/targets/esp32s3.yaml",
+        "CHANGELOG.md",
+        "README.md"
+      ],
+      "license": "MIT OR Apache-2.0",
+      "fields": [
+        "embedded",
+        "mcu",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "CLI flags, chip definitions",
+      "extensions": [
+        ".rs"
+      ]
+    },
+    {
+      "id": "probe-rs-docs",
+      "title": "probe.rs documentation",
+      "authors": "",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://probe.rs/docs/",
+      "license": "see site",
+      "fields": [
+        "embedded",
+        "mcu"
+      ],
+      "status": "current",
+      "useFor": "probe setup, udev, tools overview"
+    },
+    {
+      "id": "renode-source",
+      "title": "Renode 1.17.0 (platforms, scripts, tests)",
+      "authors": "Antmicro",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/renode/renode/tar.gz/refs/tags/v1.17.0",
+      "version": "v1.17.0",
+      "paths": [
+        "platforms/cpus",
+        "platforms/boards",
+        "scripts/single-node",
+        "tests/platforms",
+        "tests/renode-keywords.robot",
+        "README.md",
+        "CHANGELOG.rst",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "fields": [
+        "embedded",
+        "mcu",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "which boards exist, .repl/.resc formats, Robot Framework test keywords",
+      "extensions": [
+        ".repl",
+        ".resc",
+        ".robot"
+      ]
+    },
+    {
+      "id": "renode-docs",
+      "title": "Renode documentation",
+      "authors": "",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://renode.readthedocs.io",
+      "license": "no license stated (read online)",
+      "fields": [
+        "embedded",
+        "mcu"
+      ],
+      "status": "current",
+      "useFor": "monitor commands, platform description format, testing guide"
+    },
+    {
+      "id": "esp-idf-docs-source",
+      "title": "ESP-IDF v6.1 docs and key headers",
+      "authors": "Espressif",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/espressif/esp-idf/tar.gz/refs/tags/v6.1",
+      "version": "v6.1",
+      "paths": [
+        "docs/en",
+        "examples/common_components/protocol_examples_common",
+        "components/esp_driver_uart/include",
+        "components/esp_eth/Kconfig",
+        "components/esp_wifi/include/esp_wifi.h",
+        "tools/idf_py_actions/qemu_ext.py",
+        "LICENSE"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "embedded",
+        "mcu",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "API guides (QEMU, JTAG, flashing), Kconfig symbols, idf.py qemu options",
+      "exclude": [
+        "docs/en/_static"
+      ]
+    },
+    {
+      "id": "espflash-source",
+      "title": "espflash 4.7.0",
+      "authors": "esp-rs",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/esp-rs/espflash/tar.gz/refs/tags/v4.7.0",
+      "version": "v4.7.0",
+      "paths": [
+        "espflash/README.md",
+        "espflash/src/cli",
+        "CHANGELOG.md"
+      ],
+      "license": "MIT OR Apache-2.0",
+      "fields": [
+        "embedded",
+        "mcu",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "flags, image formats"
+    },
+    {
+      "id": "esptool-source",
+      "title": "esptool 5.6.0 (docs and CLI)",
+      "authors": "Espressif",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/espressif/esptool/tar.gz/refs/tags/v5.6.0",
+      "version": "v5.6.0",
+      "paths": [
+        "docs/en",
+        "esptool/cli_util.py",
+        "esptool/__init__.py",
+        "CHANGELOG.md"
+      ],
+      "license": "GPL-2.0 (reference reading)",
+      "fields": [
+        "embedded",
+        "mcu",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "v5 command names, migration from v4"
+    },
+    {
+      "id": "flecs-source",
+      "title": "flecs v4.2.0",
+      "authors": "Sander Mertens",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/SanderMertens/flecs/tar.gz/refs/tags/v4.2.0",
+      "version": "v4.2.0",
+      "paths": [
+        "include",
+        "docs",
+        "examples/c",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "fields": [
+        "c",
+        "gamedev",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "exact C API, manuals (Queries, Systems, Observers, Relationships, Prefabs, REST), C examples",
+      "exclude": [
+        "docs/img",
+        "docs/cfg"
+      ]
+    },
+    {
+      "id": "jolt-source",
+      "title": "Jolt Physics v5.6.0 (headers and docs)",
+      "authors": "Jorrit Rouwe",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/jrouwe/JoltPhysics/tar.gz/refs/tags/v5.6.0",
+      "version": "v5.6.0",
+      "paths": [
+        "Jolt",
+        "Docs",
+        "HelloWorld/HelloWorld.cpp",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "fields": [
+        "c",
+        "gamedev",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "C++ API, architecture (layers, determinism, threads), API changes",
+      "exclude": [
+        "Jolt/Shaders"
+      ],
+      "extensions": [
+        ".h",
+        ".cpp"
+      ]
+    },
+    {
+      "id": "joltc-source",
+      "title": "JoltC C API (commit 429235d)",
+      "authors": "SecondHalfGames",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/SecondHalfGames/JoltC/tar.gz/429235de52d20e547cb41cfa5f602986f16c85cb",
+      "version": "429235d",
+      "paths": [
+        "JoltC",
+        "HelloWorld/main.cpp",
+        "README.md",
+        "LICENSE-MIT"
+      ],
+      "license": "MIT OR Apache-2.0",
+      "fields": [
+        "c",
+        "gamedev",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "exact C names (JPC_*), refcount rules"
+    },
+    {
+      "id": "meshoptimizer-source",
+      "title": "meshoptimizer v1.3",
+      "authors": "Arseny Kapoulkine",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/zeux/meshoptimizer/tar.gz/refs/tags/v1.3",
+      "version": "v1.3",
+      "paths": [
+        "src/meshoptimizer.h",
+        "README.md",
+        "gltf/README.md",
+        "LICENSE.md"
+      ],
+      "license": "MIT",
+      "fields": [
+        "c",
+        "gamedev",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "every API with doc comments; gltfpack flags"
+    },
+    {
+      "id": "ufbx-source",
+      "title": "ufbx v0.23.1",
+      "authors": "Samuli Raivio",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/ufbx/ufbx/tar.gz/refs/tags/v0.23.1",
+      "version": "v0.23.1",
+      "paths": [
+        "ufbx.h",
+        "README.md",
+        "examples",
+        "LICENSE"
+      ],
+      "license": "MIT OR Unlicense",
+      "fields": [
+        "c",
+        "gamedev",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "load/evaluate options, scene structs, skinning and animation API"
+    },
+    {
+      "id": "cgltf-source",
+      "title": "cgltf v1.15",
+      "authors": "Johannes Kuhlmann",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/jkuhlmann/cgltf/tar.gz/refs/tags/v1.15",
+      "version": "v1.15",
+      "paths": [
+        "cgltf.h",
+        "cgltf_write.h",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "fields": [
+        "c",
+        "gamedev",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "parse/load/validate/accessor API, extensions"
+    },
+    {
+      "id": "tracy-source",
+      "title": "Tracy profiler v0.15.0",
+      "authors": "Bartosz Taudul",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/wolfpld/tracy/tar.gz/refs/tags/v0.15.0",
+      "version": "v0.15.0",
+      "paths": [
+        "public/tracy",
+        "public/common/TracyVersion.hpp",
+        "manual/tracy.tex",
+        "NEWS",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "BSD-3-Clause",
+      "fields": [
+        "c",
+        "gamedev",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "macros (C and C++), build options, on-demand mode, capture and csvexport",
+      "extensions": [
+        ".h",
+        ".hpp"
+      ]
+    },
+    {
+      "id": "mimalloc-source",
+      "title": "mimalloc v3.6.1",
+      "authors": "Microsoft",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/microsoft/mimalloc/tar.gz/refs/tags/v3.6.1",
+      "version": "v3.6.1",
+      "paths": [
+        "include/mimalloc.h",
+        "readme.md",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "fields": [
+        "c",
+        "gamedev",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "heap API, options (env names), override notes"
+    },
+    {
+      "id": "rpmalloc-source",
+      "title": "rpmalloc 2.0.1",
+      "authors": "Mattias Jansson",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/mjansson/rpmalloc/tar.gz/refs/tags/2.0.1",
+      "version": "2.0.1",
+      "paths": [
+        "rpmalloc/rpmalloc.h",
+        "README.md",
+        "BENCHMARKS.md",
+        "CHANGELOG"
+      ],
+      "license": "MIT OR Unlicense",
+      "fields": [
+        "c",
+        "gamedev",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "init/thread/heap API, config struct"
+    },
+    {
+      "id": "odin-tracy-source",
+      "title": "odin-tracy bindings (commit 307845d)",
+      "authors": "Oskar Nordquist",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/oskarnp/odin-tracy/tar.gz/307845d45e54f4f0967a7689bf2e6cd382028cc1",
+      "version": "307845d",
+      "paths": [
+        "allocator.odin",
+        "bindings.odin",
+        "wrapper.odin",
+        "README.md",
+        "demo",
+        "LICENSE"
+      ],
+      "license": "BSD-3-Clause",
+      "fields": [
+        "odin",
+        "c",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "Odin wrapper names (Zone, FrameMark, profiled allocator)"
+    },
+    {
+      "id": "monocypher-source",
+      "title": "Monocypher 4.0.3 (source and man pages)",
+      "authors": "Loup Vaillant",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/LoupVaillant/Monocypher/tar.gz/refs/tags/4.0.3",
+      "version": "4.0.3",
+      "paths": [
+        "src",
+        "doc",
+        "README.md",
+        "CHANGELOG.md",
+        "LICENCE.md"
+      ],
+      "license": "BSD-2-Clause or CC0-1.0",
+      "fields": [
+        "c",
+        "crypto",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "exact v4 signatures; man pages (AEAD, X25519, Argon2, EdDSA vs Ed25519)"
+    },
+    {
+      "id": "libsodium-source",
+      "title": "libsodium 1.0.22 (headers)",
+      "authors": "Frank Denis",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/jedisct1/libsodium/tar.gz/refs/tags/1.0.22-RELEASE",
+      "version": "1.0.22-RELEASE",
+      "paths": [
+        "src/libsodium/include",
+        "ChangeLog",
+        "README.markdown",
+        "LICENSE"
+      ],
+      "license": "ISC",
+      "fields": [
+        "c",
+        "crypto",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "every API and constant (*_BYTES), thread safety"
+    },
+    {
+      "id": "libsodium-docs",
+      "title": "libsodium documentation",
+      "authors": "Frank Denis",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://doc.libsodium.org",
+      "license": "see site",
+      "fields": [
+        "c",
+        "crypto"
+      ],
+      "status": "current",
+      "useFor": "usage guides per primitive"
+    },
+    {
+      "id": "yyjson-source",
+      "title": "yyjson 0.13.0",
+      "authors": "ibireme",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/ibireme/yyjson/tar.gz/refs/tags/0.13.0",
+      "version": "0.13.0",
+      "paths": [
+        "src/yyjson.h",
+        "doc",
+        "README.md",
+        "CHANGELOG.md",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "fields": [
+        "c",
+        "data",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "read/write flags, mutable API, JSON pointer/patch, allocator",
+      "exclude": [
+        "doc/images",
+        "doc/doxygen"
+      ]
+    },
+    {
+      "id": "xxhash-source",
+      "title": "xxHash v0.8.4",
+      "authors": "Yann Collet",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/Cyan4973/xxHash/tar.gz/refs/tags/v0.8.4",
+      "version": "v0.8.4",
+      "paths": [
+        "xxhash.h",
+        "doc",
+        "README.md",
+        "CHANGELOG",
+        "LICENSE"
+      ],
+      "license": "BSD-2-Clause",
+      "fields": [
+        "c",
+        "data",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "XXH3/XXH64 API, build macros, spec"
+    },
+    {
+      "id": "zstd-source",
+      "title": "Zstandard v1.5.7 (API and format docs)",
+      "authors": "Meta",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/facebook/zstd/tar.gz/refs/tags/v1.5.7",
+      "version": "v1.5.7",
+      "paths": [
+        "lib/zstd.h",
+        "lib/zdict.h",
+        "lib/zstd_errors.h",
+        "doc/zstd_compression_format.md",
+        "doc/decompressor_errata.md",
+        "doc/decompressor_permissive.md",
+        "programs/zstd.1.md",
+        "README.md",
+        "CHANGELOG",
+        "LICENSE"
+      ],
+      "license": "BSD-3-Clause or GPL-2.0",
+      "fields": [
+        "c",
+        "data",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "parameters (ZSTD_c_*), streaming, dictionaries, frame format"
+    },
+    {
+      "id": "lz4-source",
+      "title": "LZ4 v1.11.1 (API and format docs)",
+      "authors": "Yann Collet",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/lz4/lz4/tar.gz/refs/tags/v1.11.1",
+      "version": "v1.11.1",
+      "paths": [
+        "lib/lz4.h",
+        "lib/lz4hc.h",
+        "lib/lz4frame.h",
+        "lib/lz4file.h",
+        "doc/lz4_Block_format.md",
+        "doc/lz4_Frame_format.md",
+        "README.md",
+        "NEWS",
+        "lib/LICENSE"
+      ],
+      "license": "BSD-2-Clause (lib)",
+      "fields": [
+        "c",
+        "data",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "block/HC/frame API, formats (MCAP lz4 chunks)"
+    },
+    {
+      "id": "dora-source",
+      "title": "dora-rs v1.1.0 (docs and node APIs)",
+      "authors": "dora-rs",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/dora-rs/dora/tar.gz/refs/tags/v1.1.0",
+      "version": "v1.1.0",
+      "paths": [
+        "README.md",
+        "Changelog.md",
+        "docs",
+        "apis/c/node",
+        "apis/c/operator",
+        "apis/c++/node",
+        "apis/python/node/dora",
+        "apis/rust/node/src/lib.rs",
+        "apis/rust/node/src/node/mod.rs",
+        "examples",
+        "dora-schema.json",
+        "libraries/core/src/topics.rs",
+        "LICENSE"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "dora",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "dataflow YAML spec, CLI, Python/Rust/C node APIs, multi-machine, ROS 2 bridge, performance",
+      "exclude": [
+        "target"
+      ]
+    },
+    {
+      "id": "dora-hub-source",
+      "title": "dora-hub v0.5.0 (prebuilt nodes)",
+      "authors": "dora-rs",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/dora-rs/dora-hub/tar.gz/refs/tags/v0.5.0",
+      "version": "v0.5.0",
+      "paths": [
+        "README.md",
+        "node-hub",
+        "examples",
+        "LICENSE"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "dora",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "hub node inputs/outputs/env, example graphs",
+      "extensions": [
+        ".py",
+        ".rs",
+        ".toml",
+        ".yml"
+      ]
+    },
+    {
+      "id": "eigen-source",
+      "title": "Eigen 5.0.1 (geometry, decompositions, docs)",
+      "authors": "Eigen",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://gitlab.com/libeigen/eigen/-/archive/5.0.1/eigen-5.0.1.tar.gz",
+      "version": "5.0.1",
+      "paths": [
+        "Eigen/src/Geometry",
+        "Eigen/src/Cholesky",
+        "Eigen/src/QR",
+        "Eigen/src/SVD",
+        "Eigen/src/LU",
+        "Eigen/src/Core/util",
+        "Eigen/src/Core/Map.h",
+        "Eigen/Version",
+        "doc",
+        "COPYING.MPL2"
+      ],
+      "license": "MPL-2.0",
+      "fields": [
+        "robot-math",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "Isometry/Quaternion/AngleAxis API, solver choice, alignment and Map docs",
+      "extensions": [
+        ".h"
+      ]
+    },
+    {
+      "id": "sophus-source",
+      "title": "Sophus 1.24.6",
+      "authors": "Hauke Strasdat",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/strasdat/Sophus/tar.gz/refs/tags/1.24.6",
+      "version": "1.24.6",
+      "paths": [
+        "sophus",
+        "README.md",
+        "LICENSE.txt"
+      ],
+      "license": "MIT",
+      "fields": [
+        "robot-math",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "SO3/SE3/Sim3 API, interpolate, Ceres manifold"
+    },
+    {
+      "id": "manif-source",
+      "title": "manif 0.0.5",
+      "authors": "Jeremie Deray",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/artivis/manif/tar.gz/refs/tags/0.0.5",
+      "version": "0.0.5",
+      "paths": [
+        "include/manif",
+        "docs",
+        "README.md",
+        "examples",
+        "python",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "fields": [
+        "robot-math",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "rplus/lplus/between with Jacobians; manifpy"
+    },
+    {
+      "id": "gtsam-source",
+      "title": "GTSAM 4.3.0 (geometry, nonlinear, slam, navigation)",
+      "authors": "Borg Lab",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/borglab/gtsam/tar.gz/refs/tags/4.3.0",
+      "version": "4.3.0",
+      "paths": [
+        "gtsam/geometry",
+        "gtsam/nonlinear",
+        "gtsam/slam",
+        "gtsam/navigation",
+        "gtsam/linear/NoiseModel.h",
+        "gtsam/base",
+        "doc",
+        "LICENSE.BSD"
+      ],
+      "license": "BSD-2-Clause",
+      "fields": [
+        "robot-math",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "factor graph API, Pose3, ISAM2, noise models, IMU preintegration",
+      "extensions": [
+        ".h"
+      ],
+      "exclude": [
+        "gtsam/geometry/tests",
+        "gtsam/nonlinear/tests",
+        "gtsam/slam/tests",
+        "gtsam/navigation/tests",
+        "gtsam/base/tests"
+      ]
+    },
+    {
+      "id": "ceres-source",
+      "title": "Ceres Solver 2.2.0",
+      "authors": "Google",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/ceres-solver/ceres-solver/tar.gz/refs/tags/2.2.0",
+      "version": "2.2.0",
+      "paths": [
+        "include/ceres",
+        "docs/source",
+        "examples",
+        "LICENSE"
+      ],
+      "license": "BSD-3-Clause",
+      "fields": [
+        "robot-math",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "Problem/Solver/Manifold API, solver options, tutorials",
+      "exclude": [
+        "include/ceres/internal"
+      ]
+    },
+    {
+      "id": "kiss-icp-source",
+      "title": "KISS-ICP v1.3.0",
+      "authors": "PRBonn",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/PRBonn/kiss-icp/tar.gz/refs/tags/v1.3.0",
+      "version": "v1.3.0",
+      "paths": [
+        "README.md",
+        "python/README.md",
+        "python/kiss_icp",
+        "cpp/kiss_icp",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "fields": [
+        "robot-math",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "config fields, pipeline, dataset readers, ATE metric"
+    },
+    {
+      "id": "small-gicp-source",
+      "title": "small_gicp v1.0.1",
+      "authors": "Kenji Koide",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/koide3/small_gicp/tar.gz/refs/tags/v1.0.1",
+      "version": "v1.0.1",
+      "paths": [
+        "include/small_gicp",
+        "README.md",
+        "src/python",
+        "src/example",
+        "LICENSE"
+      ],
+      "license": "MIT",
+      "fields": [
+        "robot-math",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "registration API, factors, threading backends"
+    },
+    {
+      "id": "mujoco-source",
+      "title": "MuJoCo 4.0.1 (manual, headers, Python bindings)",
+      "authors": "Google DeepMind",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/google-deepmind/mujoco/tar.gz/refs/tags/4.0.1",
+      "version": "4.0.1",
+      "paths": [
+        "doc",
+        "include/mujoco",
+        "python/mujoco",
+        "sample",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "simulation",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "XML attributes (XMLreference.rst), C signatures, batch/rollout/MjSpec, MJX and Warp chapters, changelog",
+      "exclude": [
+        "doc/images"
+      ],
+      "extensions": [
+        ".h",
+        ".py",
+        ".pyi",
+        ".cc"
+      ]
+    },
+    {
+      "id": "mujoco-warp-source",
+      "title": "MuJoCo Warp v4.0.1",
+      "authors": "Google DeepMind",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/google-deepmind/mujoco_warp/tar.gz/refs/tags/v4.0.1",
+      "version": "v4.0.1",
+      "paths": [
+        "mujoco_warp",
+        "README.md",
+        "AGENTS.md",
+        "LICENSE"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "simulation",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "GPU API (put_model, make_data, options, overflow handling), feature parity"
+    },
+    {
+      "id": "mujoco-menagerie",
+      "title": "MuJoCo Menagerie v2026.11.3 (robot models)",
+      "authors": "Google DeepMind",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/google-deepmind/mujoco_menagerie/tar.gz/refs/tags/v2026.11.3",
+      "version": "v2026.11.3",
+      "paths": [
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "per robot (mostly BSD-3/Apache-2.0/MIT)",
+      "fields": [
+        "simulation",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "which robots exist, actuator types, keyframes, MJX variants",
+      "note": "Only the README is indexed; the robot folders are on GitHub: https://github.com/google-deepmind/mujoco_menagerie"
+    },
+    {
+      "id": "genesis-source",
+      "title": "Genesis v1.4.6",
+      "authors": "Genesis-Embodied-AI",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/Genesis-Embodied-AI/Genesis/tar.gz/refs/tags/v1.4.6",
+      "version": "v1.4.6",
+      "paths": [
+        "genesis/options",
+        "genesis/engine/entities",
+        "genesis/engine/materials",
+        "genesis/engine/sensors",
+        "genesis/vis/camera.py",
+        "genesis/engine/scene.py",
+        "genesis/__init__.py",
+        "examples",
+        "RELEASE.md",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "simulation",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "option fields, entity control signatures, examples per feature",
+      "exclude": [
+        "genesis/assets"
+      ]
+    },
+    {
+      "id": "isaacsim-source",
+      "title": "Isaac Sim v6.2.0 (repo: skills, examples, extension API docs)",
+      "authors": "NVIDIA",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/isaac-sim/IsaacSim/tar.gz/refs/tags/v6.2.0",
+      "version": "v6.2.0",
+      "paths": [
+        "skills",
+        "source/standalone_examples",
+        "source/extensions",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "Apache-2.0 (repo); runtime under NVIDIA Omniverse license",
+      "fields": [
+        "simulation",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "Kit API signatures (per-extension python_api.md and docs), standalone examples",
+      "exclude": [
+        "source/deprecated"
+      ],
+      "extensions": [
+        ".py"
+      ],
+      "note": "Extensions are indexed as Markdown docs plus Python."
+    },
+    {
+      "id": "isaaclab-source",
+      "title": "Isaac Lab v3.0.0",
+      "authors": "NVIDIA",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/isaac-sim/IsaacLab/tar.gz/refs/tags/v3.0.0",
+      "version": "v3.0.0",
+      "paths": [
+        "docs/source",
+        "skills",
+        "scripts",
+        "source/isaaclab/isaaclab",
+        "source/isaaclab_tasks/isaaclab_tasks",
+        "source/isaaclab_rl/isaaclab_rl",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "BSD-3-Clause",
+      "fields": [
+        "simulation",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "install routes, train/play, task and env configs, migration",
+      "exclude": [
+        "docs/source/_static"
+      ]
+    },
+    {
+      "id": "isaacsim-docs",
+      "title": "Isaac Sim documentation",
+      "authors": "NVIDIA",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://docs.isaacsim.omniverse.nvidia.com/latest/",
+      "license": "NVIDIA docs (read online)",
+      "fields": [
+        "simulation",
+        "robotics"
+      ],
+      "status": "current",
+      "useFor": "requirements, install, livestream, ROS 2 tutorials"
+    },
+    {
+      "id": "mujoco-playground-source",
+      "title": "MuJoCo Playground v1.0.1",
+      "authors": "Google DeepMind",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/google-deepmind/mujoco_playground/tar.gz/refs/tags/v1.0.1",
+      "version": "v1.0.1",
+      "paths": [
+        "mujoco_playground",
+        "learning",
+        "README.md",
+        "LICENSE"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "simulation",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "MJX RL environments and training scripts",
+      "exclude": [
+        "mujoco_playground/_src/locomotion/go1/xmls/assets"
+      ],
+      "extensions": [
+        ".py"
+      ]
+    },
+    {
+      "id": "opencv-source",
+      "title": "OpenCV 5.1.0 headers, module docs and tutorials",
+      "authors": "OpenCV",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/opencv/opencv/tar.gz/refs/tags/5.1.0",
+      "version": "5.1.0",
+      "paths": [
+        "modules/core/include",
+        "modules/imgproc/include",
+        "modules/imgcodecs/include",
+        "modules/videoio/include",
+        "modules/calib/include",
+        "modules/geometry/include",
+        "modules/stereo/include",
+        "modules/features/include",
+        "modules/flann/include",
+        "modules/objdetect/include",
+        "modules/video/include",
+        "modules/dnn/include",
+        "modules/photo/include",
+        "modules/ptcloud/include",
+        "modules/stitching/include",
+        "modules/highgui/include",
+        "modules/dnn/doc",
+        "doc/tutorials/calib3d",
+        "doc/tutorials/objdetect",
+        "doc/tutorials/features",
+        "doc/tutorials/geometry",
+        "doc/tutorials/dnn",
+        "doc/tutorials/imgproc",
+        "doc/tutorials/core",
+        "doc/tutorials/gpu",
+        "doc/tutorials/app",
+        "doc/py_tutorials",
+        "LICENSE"
+      ],
+      "exclude": [
+        "modules/core/include/opencv2/core/hal"
+      ],
+      "extensions": [
+        ".hpp",
+        ".h"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "vision",
+        "opencv",
+        "robotics",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "exact C++/Python signatures with doc comments (calibration, geometry, stereo, features, objdetect/aruco, video, dnn), tutorials"
+    },
+    {
+      "id": "opencv-contrib-source",
+      "title": "opencv_contrib 5.1.0 (selected modules incl. CUDA)",
+      "authors": "OpenCV",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/opencv/opencv_contrib/tar.gz/refs/tags/5.1.0",
+      "version": "5.1.0",
+      "paths": [
+        "modules/tracking/include",
+        "modules/xfeatures2d/include",
+        "modules/ximgproc/include",
+        "modules/cudaarithm/include",
+        "modules/cudaimgproc/include",
+        "modules/cudawarping/include",
+        "modules/cudafilters/include",
+        "modules/cudafeatures2d/include",
+        "modules/cudastereo/include",
+        "modules/cudaoptflow/include",
+        "modules/cudacodec/include",
+        "modules/aruco/include",
+        "modules/xobjdetect/include",
+        "modules/README.md",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".hpp",
+        ".h"
+      ],
+      "license": "Apache-2.0",
+      "fields": [
+        "vision",
+        "opencv",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "trackers (CSRT/KCF), AKAZE/BRISK/SURF, cv2.cuda API (StereoSGM, filters, optical flow, cudacodec)"
+    },
+    {
+      "id": "opencv-docs",
+      "title": "OpenCV documentation (5.x and 4.x)",
+      "authors": "OpenCV",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://docs.opencv.org/5.x/",
+      "license": "see site",
+      "fields": [
+        "vision",
+        "opencv"
+      ],
+      "status": "current",
+      "useFor": "rendered API reference; 4.x docs at https://docs.opencv.org/4.x/; migration guide https://github.com/opencv/opencv/wiki/OpenCV-4-to-5-migration"
     }
   ]
 }

@@ -188,7 +188,7 @@ export function demoUnit(name: string, script: string): Omit<Unit, "id"> {
 
 // ------------------------------------------------------------------ source code (Odin, C, C++ headers)
 
-export const CODE_FILES = new Set([".odin", ".c", ".h", ".cc", ".cpp", ".hpp", ".inl", ".rs", ".zig", ".py", ".pyi", ".js", ".ts", ".json5"])
+export const CODE_FILES = new Set([".odin", ".c", ".h", ".cc", ".cpp", ".hpp", ".inl", ".rs", ".zig", ".py", ".pyi", ".js", ".ts", ".json5", ".fbs", ".proto", ".cmake", ".repl", ".resc", ".robot", ".yaml"])
 const CODE_UNIT_CHARS = 2500
 
 /** Top-level declarations of one source file with the comments above them, in groups of about UNIT_CHARS. */
@@ -267,7 +267,11 @@ export function codeUnits(relpath: string, source: string, size = CODE_UNIT_CHAR
 /** Every code file and README/Markdown under the kept paths of a source tree, as units headed by file and declaration. */
 export async function sourceTreeUnits(root: string, options: { paths?: readonly string[]; exclude?: readonly string[]; extensions?: readonly string[]; signal?: AbortSignal; maxFileBytes?: number } = {}): Promise<Omit<Unit, "id">[]> {
   const units: Omit<Unit, "id">[] = []
-  const excluded = (rel: string) => (options.exclude ?? []).some(pattern => rel === pattern || rel.startsWith(`${pattern.replace(/\/$/, "")}/`)) || /(^|\/)(\.git|node_modules|build|\.pixi)(\/|$)/.test(rel)
+  // Unit tests drown real API matches in search results: skip them, except under a path the reference keeps on purpose.
+  const kept = (rel: string) => (options.paths ?? []).some(path => { const p = path.replace(/\/$/, ""); return /(^|\/)tests?(\/|$)/.test(p) && (rel === p || rel.startsWith(`${p}/`)) })
+  const excluded = (rel: string) => (options.exclude ?? []).some(pattern => rel === pattern || rel.startsWith(`${pattern.replace(/\/$/, "")}/`))
+    || /(^|\/)(\.git|node_modules|build|\.pixi)(\/|$)/.test(rel)
+    || (!kept(rel) && (/(^|\/)(tests?|__tests__|testdata|test_data)(\/|$)/.test(rel) || /(^|\/)(test_[^/]*|[^/]*_tests?)\.(py|c|cc|cpp|rs|odin)$/.test(rel)))
   const walk = async (dir: string, rel: string): Promise<void> => {
     options.signal?.throwIfAborted()
     for (const entry of (await readdir(dir, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
@@ -276,7 +280,7 @@ export async function sourceTreeUnits(root: string, options: { paths?: readonly 
       if (entry.isDirectory()) { await walk(join(dir, entry.name), childRel); continue }
       if (!entry.isFile()) continue
       const ext = extname(entry.name).toLowerCase()
-      const markdown = ext === ".md" || ext === ".markdown"
+      const markdown = ext === ".md" || ext === ".markdown" || ext === ".rst"
       if (!CODE_FILES.has(ext) && !markdown) continue
       if (!markdown && options.extensions?.length && !options.extensions.includes(ext)) continue
       const info = await stat(join(dir, entry.name))
@@ -412,7 +416,7 @@ export class Library {
 
   async #fingerprint(source: SourceInput): Promise<string> {
     if (source.kind === "link" || !source.path) return `link:${source.url ?? ""}`
-    try { const info = await stat(source.path); return `${source.kind}:${info.size}:${Math.round(info.mtimeMs)}:${source.version ?? ""}:${(source.paths ?? []).join(",")}:${(source.exclude ?? []).join(",")}:${(source.extensions ?? []).join(",")}:v2` } catch { return "missing" }
+    try { const info = await stat(source.path); return `${source.kind}:${info.size}:${Math.round(info.mtimeMs)}:${source.version ?? ""}:${(source.paths ?? []).join(",")}:${(source.exclude ?? []).join(",")}:${(source.extensions ?? []).join(",")}:${source.kind === "source-tree" ? "v3" : "v2"}` } catch { return "missing" }
   }
 
   async #convert(source: SourceInput, signal?: AbortSignal): Promise<Omit<Unit, "id">[]> {

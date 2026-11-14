@@ -186,3 +186,17 @@ test("a source tree keeps only the listed paths and indexes code and READMEs", a
   assert.match(hit.where, /core\/mem\/a\.odin/)
   assert.equal((await lib.stored())[0]!.meta.edition, "dev-2026-11")
 })
+
+test("source trees skip unit tests unless the reference keeps a test folder on purpose", async () => {
+  const root = await scratch()
+  await mkdir(join(root, "pkg", "tests"), { recursive: true })
+  await mkdir(join(root, "keep", "tests"), { recursive: true })
+  await writeFile(join(root, "pkg", "api.py"), "def put_model(m):\n    \"\"\"Copies a model to the GPU.\"\"\"\n    return m\n")
+  await writeFile(join(root, "pkg", "api_test.py"), "def test_put_model():\n    put_model(1)\n")
+  await writeFile(join(root, "pkg", "tests", "t.py"), "def helper_in_tests():\n    pass\n")
+  await writeFile(join(root, "keep", "tests", "keywords.py"), "def wanted_keyword():\n    pass\n")
+  const text = (await sourceTreeUnits(root, { paths: ["pkg", "keep/tests"] })).map(u => u.text).join("\n")
+  assert.match(text, /Copies a model/)
+  assert.match(text, /wanted_keyword/)
+  assert.doesNotMatch(text, /test_put_model|helper_in_tests/)
+})
