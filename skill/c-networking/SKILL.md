@@ -8,7 +8,8 @@ description: Real-time game/simulation networking and utilities in C (and from O
 ## Ground truth first
 
 - Versions as of Nov 2026 (verify with `git ls-remote --tags`): **zpl-c/enet v2.7.0** (2026-06, `ENET_VERSION_MAJOR 2`),
-  upstream **lsalzman/enet v1.3.18**, **librg v7.4.0** (2025-01; `master` has only CI commits since), **zpl 19.5.0**
+  upstream **lsalzman/enet v1.3.18**, **librg v7.4.1** (2026-11-20; security fix for an
+  out-of-bounds read in `librg_world_read`, GHSA-phfx-f87r-6j2c — **update from 7.4.0** if you read packets from peers), **zpl 19.5.0**
   (2024-08; tag `19.5.0` — note `git ls-remote --tags | sort -V` lists the old `v9.8.5` last because of the `v` prefix; take the single header from GitHub Releases). Use the release assets:
   `https://github.com/zpl-c/{enet,librg,zpl}/releases/download/<tag>/{enet,librg,zpl}.h`. In the zpl repo,
   `code/zpl.h` is a multi-file dev header, not the single-file distribution.
@@ -93,6 +94,13 @@ description: Real-time game/simulation networking and utilities in C (and from O
   Result: tick 1 CREATE 1,2; tick 2 UPDATE 1,2; after entity 2 moved away: UPDATE 1, REMOVE 2. On the client, received
   entities are **foreign** (`librg_entity_foreign` == 1). Return codes: `LIBRG_OK` (0), negative = error
   (`LIBRG_FAIL(code)`).
+- **Untrusted input** (a server reading client packets): before 7.4.1, `librg_world_read` trusted each value's
+  declared size, so one crafted packet read past the buffer (crash, CWE-125). 7.4.1 checks every value against its
+  segment and returns `LIBRG_READ_INVALID` (-3) **before any read handler runs** for that value (read in the 7.4.1
+  source; a value whose size field was patched to 0xFFFF → -3 with nothing tracked, though 7.4.0 also rejected that
+  simple case). A short/truncated buffer is not an error: read returns a
+  **positive** count of unread bytes (10-byte buffer → 10). So check `r != LIBRG_OK` (not `r < 0`), drop the packet,
+  and consider disconnecting the peer. Handlers that ran for earlier, valid segments are not rolled back.
 - Queries without packing: `librg_world_query(w, owner, radius, ids, &n)`, `librg_world_fetch_chunk/owner/all`.
   Visibility: `librg_entity_visibility_global_set(w, id, LIBRG_VISIBLITY_NEVER/ALWAYS)` (the misspelling is the
   real API name), `_owner_set` per owner, `librg_entity_dimension_set` for separate layers or interiors. Multi-chunk

@@ -18,9 +18,9 @@ sources=["genesis-source"]`. Read `examples/` at the tag before inventing calls;
 
 | Item | State |
 |---|---|
-| Version | **genesis-world 1.4.6** (8 Nov 2026; PyPI and conda-forge), GitHub tag `v1.4.6`. 1.4.x releases every 1–3 weeks; read `RELEASE.md` ("Breaking" sections). |
+| Version | **genesis-world 1.4.7** (17 Nov 2026; PyPI), GitHub tag `v1.4.7`; validated 13 Nov with 1.4.6, re-run 20 Nov with 1.4.7 (same rigid results). 1.4.7 = non-rigid fixes (FEM, SPH, MPM, SAP coupler), all solvers deterministic with `use_deterministic_algorithms=True` (~15% slower), faster URDF loading. 1.4.x releases every 1–3 weeks; read `RELEASE.md` ("Breaking" sections). |
 | Python | **3.12–3.14** (1.4.6 dropped 3.10 and 3.11). |
-| Kernel language | `quadrants` 1.4.0 (pulled automatically). Kernels compile on first use and are cached in `~/.cache/quadrants` (persistent since 1.4.5). Taichi is gone: old `ti.*` snippets do not apply. |
+| Kernel language | `quadrants` 1.4.0 (pinned `==1.4.0` by 1.4.7, pulled automatically). Kernels compile on first use and are cached in `~/.cache/quadrants` (persistent since 1.4.5). Taichi is gone: old `ti.*` snippets do not apply. |
 | torch | Not a declared dependency: install a CUDA build yourself. Blackwell (RTX 50xx, sm_120) needs cu128+ wheels; validated with `torch 2.15.0+cu132`. |
 | Extras pulled | `mujoco` (MJCF parsing, now 4.0.1), `gs-madrona` (batch renderer, Linux x86_64), `pymeshlab`, `coacd`, `tetgen`, `libigl`, OpenCV. The env is ~7.5 GB. |
 | Docs | https://genesis-world.readthedocs.io (user guide), `examples/` (tutorials, locomotion/go2_*.py, speed_benchmark, sensors, rendering, coupling, deformable). |
@@ -34,15 +34,16 @@ platforms = [{ platform = "linux-64", cuda = "13.0", glibc = "2.35" }]   # glibc
 python = "3.12.*"
 [pypi-dependencies]
 torch = { version = "==2.15.0", index = "https://download.pytorch.org/whl/cu132" }
-genesis-world = "==1.4.6"
-matplotlib = "*"          # pitfall 2
+genesis-world = "==1.4.7"
+matplotlib = "*"          # pitfall 2 (1.4.6 only; harmless on 1.4.7)
 pillow = "*"
 ```
 Install pitfalls found:
 1. Pixi's default `__glibc` 2.28 makes it unsolvable: `pymeshlab>=2023.12 has no wheels with a matching platform tag
    (manylinux_2_28_x86_64)` → declare the host's glibc (`ldd --version`) on the platform.
 2. `import genesis` → `ModuleNotFoundError: No module named 'matplotlib'` (imported by `genesis/utils/hybrid.py`,
-   missing from the requirements) → add it.
+   missing from the requirements) → add it. Fixed in 1.4.7 (read in its `hybrid.py`; not run without it): matplotlib is now imported
+   lazily, only by the plotting helper, which raises "matplotlib is not installed" if you call it.
 3. Over `ssh -X`, `DISPLAY` is set and rendering tries X11 (`X11 connection rejected because of wrong
    authentication`). Run headless jobs with `env -u DISPLAY …`: Genesis then uses EGL (falls back to OSMesa only if
    no libEGL and no display; `PYOPENGL_PLATFORM` overrides).
@@ -94,6 +95,12 @@ Go2 at dt 0.02 with 2 substeps (physics at 0.01 s), so per step it does about 1/
 0.002 s. MJWarp ran the same robot at 4.6–8.7 M steps/s (see **mujoco**). Compare frameworks at equal physics dt,
 solver iterations and contact settings, and measure on your own scene: `examples/speed_benchmark/franka.py` claims
 43 M FPS for a Franka with 30 000 envs (a no-contact best case; 32 M with the arm in floor contact).
+
+Re-run with **1.4.7** on 2P (RTX PRO 6000 Blackwell Max-Q, 96 GB, 20 Nov 2026), same script, while another user's 8
+Isaac Lab jobs held the GPU at 99 % and 71 GB: 4096 envs 122,611 env-steps/s (1.4.6 back to back in the same
+conditions: 113,063), build 105 s vs 96 s, own VRAM 2.7 GB, base z 0.256 (unchanged), camera render 19 s, PNG correct.
+That's ~23× below the idle 5090: **throughput on a shared GPU says nothing about the simulator**. Check
+`nvidia-smi` utilization before benchmarking, and compare versions back to back.
 `torch.cuda.max_memory_allocated()` showed only 0.2–0.8 GB because Quadrants allocations are not counted, so use
 `nvidia-smi`.
 
@@ -137,7 +144,8 @@ few envs only), fewer cameras, primitive collision geometry (`convexify`, `decim
   tolerance, integrator, impratio, noslip_iterations, enable_mujoco_compatibility)` before comparing to MuJoCo.
   `use_hibernation` sleeps resting bodies. `substeps` multiply cost.
 - GPU results are deterministic only with `gs.init(seed=…, use_deterministic_algorithms=True)` and the same device;
-  1.4.4/1.4.6 fixed several GPU non-determinism bugs: stay on the latest patch.
+  1.4.4/1.4.6 fixed several GPU non-determinism bugs, and 1.4.7 extends deterministic mode to MPM, SPH and the SAP
+  coupler (~15% slower): stay on the latest patch.
 - Differentiable sim: `SimOptions(requires_grad=True)`; 1.4.5+ works with plain torch tensors and `.backward()`;
   supported for rigid PD targets, MPM, FEM (see `RELEASE.md`).
 - Debug on CPU (`gs.init(backend=gs.cpu, debug=True)`) for bounds checks; `logging_level="debug"` prints compile info.

@@ -9,7 +9,14 @@ description: Game and simulation building blocks in C (and from Odin) — flecs 
 
 - Versions as of Nov 2026 (verify with `git ls-remote --tags`; sort with `sort -V`): **flecs v4.2.0** (2026-11-04),
   **JoltPhysics v5.6.0** (2026-07), **JoltC** (SecondHalfGames, untagged; commit 429235de wraps Jolt 5.6.0 as a git
-  submodule), **meshoptimizer v1.3** (2026-09, `MESHOPTIMIZER_VERSION 1030`), **ufbx v0.23.1**, **cgltf v1.15**
+  submodule). **Jolt v5.7.0** (2026-11-14) exists, but JoltC had not moved to it as of 20 Nov 2026 (latest commit is
+  still 429235de "Update to Jolt Physics 5.6.0"), so this skill and its references stay on 5.6.0: pin the Jolt
+  submodule to the commit JoltC records, since its C structs mirror that version. 5.7 changes to expect
+  (Docs/APIChanges.md): `PhysicsSettings::mDeterministicSimulation` removed (always deterministic), optional 64-bit
+  `ObjectLayer`, `JPH_USE_STD_VECTOR` removed, `JPH_NO_DEBUG` replaced by `JPH_DEBUG`, new virtual
+  `JobSystem::CreateJobs` (custom job systems must implement it), `EstimateCollisionResponse` signature changes,
+  `ConvexHullShape`/vehicle `SaveBinaryState` format changes, and job-system race/`EINTR` fixes.
+  Also **meshoptimizer v1.3** (2026-09, `MESHOPTIMIZER_VERSION 1030`), **ufbx v0.23.1**, **cgltf v1.15**
   (2025-02; Odin's `vendor/cgltf/src/cgltf.h` is identical). All MIT (ufbx: MIT or Unlicense; JoltC: MIT or Apache-2.0).
 - The reference library holds them at these tags (`flecs-source`, `jolt-source`, `joltc-source`,
   `meshoptimizer-source`, `ufbx-source`, `cgltf-source`): `library_search query="ecs_system_desc_t"

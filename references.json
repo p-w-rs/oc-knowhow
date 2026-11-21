@@ -2281,12 +2281,12 @@
     },
     {
       "id": "librg-source",
-      "title": "librg (v7.4.0)",
+      "title": "librg (v7.4.1)",
       "authors": "zpl-c",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/zpl-c/librg/tar.gz/refs/tags/v7.4.0",
-      "version": "v7.4.0",
+      "url": "https://codeload.github.com/zpl-c/librg/tar.gz/refs/tags/v7.4.1",
+      "version": "v7.4.1",
       "paths": [
         "code",
         "docs",
@@ -3086,12 +3086,12 @@
     },
     {
       "id": "esp-idf-docs-source",
-      "title": "ESP-IDF v6.1 docs and key headers",
+      "title": "ESP-IDF v6.1.1 docs and key headers",
       "authors": "Espressif",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/espressif/esp-idf/tar.gz/refs/tags/v6.1",
-      "version": "v6.1",
+      "url": "https://codeload.github.com/espressif/esp-idf/tar.gz/refs/tags/v6.1.1",
+      "version": "v6.1.1",
       "paths": [
         "docs/en",
         "examples/common_components/protocol_examples_common",
@@ -3338,12 +3338,12 @@
     },
     {
       "id": "mimalloc-source",
-      "title": "mimalloc v3.6.1",
+      "title": "mimalloc v3.7.0",
       "authors": "Microsoft",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/microsoft/mimalloc/tar.gz/refs/tags/v3.6.1",
-      "version": "v3.6.1",
+      "url": "https://codeload.github.com/microsoft/mimalloc/tar.gz/refs/tags/v3.7.0",
+      "version": "v3.7.0",
       "paths": [
         "include/mimalloc.h",
         "readme.md",
@@ -3912,12 +3912,12 @@
     },
     {
       "id": "genesis-source",
-      "title": "Genesis v1.4.6",
+      "title": "Genesis v1.4.7",
       "authors": "Genesis-Embodied-AI",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/Genesis-Embodied-AI/Genesis/tar.gz/refs/tags/v1.4.6",
-      "version": "v1.4.6",
+      "url": "https://codeload.github.com/Genesis-Embodied-AI/Genesis/tar.gz/refs/tags/v1.4.7",
+      "version": "v1.4.7",
       "paths": [
         "genesis/options",
         "genesis/engine/entities",

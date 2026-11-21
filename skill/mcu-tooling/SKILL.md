@@ -11,10 +11,10 @@ Renode ran a Zephyr ELF under `renode-test`. Ready-made images, sources and exac
 `oc-knowhow/.local/mcu-ready/README.md`. Related skills: **odin-targets** (freestanding Odin, Cortex-M, QEMU),
 **zenoh** (§7 zenoh-pico, serial `zenohd`), **pixi**, **c-networking**, **c-platform**. Library references:
 `pico-sdk-source` (hardware_* / pico_* headers with doc comments), `pico-examples-source`, `picotool-source`,
-`probe-rs-source`, `renode-source` (platforms, Robot keywords), `esp-idf-docs-source` (docs/en at v6.1),
+`probe-rs-source`, `renode-source` (platforms, Robot keywords), `esp-idf-docs-source` (docs/en at v6.1.1),
 `espflash-source`, `esptool-source`, `zenoh-pico-source`. `library_search` there for exact function names, Kconfig
 symbols and CLI flags before writing them; links: https://probe.rs/docs, https://renode.readthedocs.io,
-https://docs.espressif.com/projects/esp-idf/en/v6.1/esp32s3/.
+https://docs.espressif.com/projects/esp-idf/en/v6.1.1/esp32s3/.
 
 ## 0. Versions and where tools come from (as of Nov 2026, verify)
 
@@ -25,17 +25,17 @@ https://docs.espressif.com/projects/esp-idf/en/v6.1/esp32s3/.
 | RISC-V compiler (Hazard3) | riscv32-pico-elf gcc 16.1.0 | `pico-sdk-tools` release `v2.3.1-0`: `riscv-toolchain-16-<arch>-lin.tar.gz` |
 | picotool | **2.3.1** | `pico-sdk-tools` `picotool-2.3.1-<arch>-lin.tar.gz` (contains `picotoolConfig.cmake`: set `picotool_DIR`) |
 | probe-rs | **0.32.0** (Jul 2026) | release `probe-rs-tools-<triple>.tar.xz` (or `cargo install probe-rs-tools` with Pixi `rust`) |
-| ESP-IDF | **v6.1** validated (v6.1.1 bug-fix release followed on 13 Nov 2026; prefer it for new work), also v6.0.3, v5.5.6 LTS | `git clone -b v6.1 --depth 1` + `git submodule update --init --depth 1`, `./install.sh esp32s3` |
+| ESP-IDF | **v6.1.1** (2026-11-16, bug-fix release of v6.1; validated 20 Nov 2026 incl. QEMU, see §5 pitfall), also v6.0.3, v5.5.6 LTS | `git clone -b v6.1.1 --depth 1` + `git submodule update --init --depth 1`, `./install.sh esp32s3` |
 | esptool | **5.6.0** | bundled in the IDF venv; conda-forge `esptool`; `pixi exec --spec esptool esptool …` |
 | espflash | **4.7.0** | release `espflash-<triple>.zip` (no `unzip` on the host? `bsdtar xf`) |
-| Espressif QEMU | 9.2.2 `esp-develop-…-20261109`; IDF v6.1 installs `…-20260417` | `python tools/idf_tools.py install qemu-xtensa` |
+| Espressif QEMU | 9.2.2 `esp-develop-…-20261109`; IDF v6.1/v6.1.1 install `…-20260417` | `python tools/idf_tools.py install qemu-xtensa` |
 | Renode | **1.17.0** (Sep 2026) | `renode-1.17.0.linux-portable.tar.gz` (bundles .NET 8), osx-arm64 dmg, deb/rpm |
 | zenoh-pico / zenohd | 1.10.2 | see **zenoh** §7 (serial needs a `transport_serial` zenohd) |
 
 conda-forge has `cmake`, `ninja`, `python`, `esptool`, `openocd` 0.12, `libusb`; it has **no** `gcc-arm-none-eabi`,
 picotool, probe-rs, espflash or Renode. A Pixi env with `cmake ninja python c-compiler cxx-compiler` (host C++ for
 pioasm/picotool builds) + the tarballs above is enough for pico-sdk. ESP-IDF manages its own tools: point
-`IDF_TOOLS_PATH` into your work folder (it defaults to `~/.espressif`; v6.1 for esp32s3 = **4.9 GB**) and run
+`IDF_TOOLS_PATH` into your work folder (it defaults to `~/.espressif`; v6.1.1 for esp32s3 = **4.9 GB**, install ~1 min) and run
 `install.sh` inside a Pixi env that supplies Python 3.12 (the IDF venv is created from that interpreter).
 
 ## 1. pico-sdk 2.x for the Pico 2 W
@@ -96,12 +96,12 @@ pixi run cmake --build build                 # build/app.uf2 .elf .bin .hex .dis
   `--idf-partition-table`, `--idf-flash-mode/--idf-flash-freq`); ESP-IDF's own route is `idf.py openocd` +
   `idf.py gdb` (openocd-esp32 v0.12.0-esp32-20260703, xtensa gdb 17.1).
 
-## 4. ESP-IDF v6.1 for ESP32-S3
+## 4. ESP-IDF v6.1.x for ESP32-S3
 
 ```sh
 export IDF_TOOLS_PATH=$PWD/idf-tools
 pixi run bash -c 'cd esp-idf && ./install.sh esp32s3 && python tools/idf_tools.py install qemu-xtensa'   # ~2 min
-pixi run bash -c '. esp-idf/export.sh && cd app && idf.py set-target esp32s3 && idf.py build'          # 13 s hello_world
+pixi run bash -c '. esp-idf/export.sh && cd app && idf.py set-target esp32s3 && idf.py build'          # 4–13 s hello_world
 ```
 - Separate configs per variant: `idf.py -B build-x -D SDKCONFIG=build-x/sdkconfig -D
   "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.qemu" build` (later files override earlier ones). App options in
@@ -133,6 +133,15 @@ pixi run bash -c '. esp-idf/export.sh && cd app && idf.py set-target esp32s3 && 
   `CONFIG_EXAMPLE_CONNECT_ETHERNET=y`, `CONFIG_ETHERNET_OPENETH_SUPPORT=y`, `CONFIG_ETHERNET_INTERNAL_SUPPORT=n`,
   `CONFIG_ETHERNET_SPI_SUPPORT=n` → DHCP 10.0.2.15, host = **10.0.2.2**. Errors "add mac address to filter not
   supported / Failed to add multicast filter" are harmless.
+- **IDF v6.1.1 boot hang in QEMU (hit 20 Nov 2026)**: any app that links the USB-Serial/JTAG driver (here via the
+  S3 default secondary console `CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=y`, pulled in by
+  protocol_examples_common/Ethernet) stops after `sleep_gpio: Enable automatic switching…` and never prints
+  `main_task: Calling app_main()`. gdb (`qemu … -gdb tcp::12345`, `xtensa-esp32s3-elf-gdb app.elf -ex "target remote
+  :12345" -ex "thread apply all bt"`) shows `usb_serial_jtag_conn_status_init` → `rtc_clk_bbpll_add_consumer` →
+  `while(!clk_ll_bbpll_calibration_is_done())` (rtc_clk.c:208): new in v6.1.1, it calibrates the BBPLL, which
+  QEMU never finishes. hello_world doesn't link that driver and is unaffected; the same app built with v6.1 boots.
+  Fix for QEMU builds: `CONFIG_ESP_CONSOLE_SECONDARY_NONE=y` in the QEMU overlay (keep USJ for real boards). With that,
+  openeth and UART-pty zenoh tests passed again.
 - **UART to the host**: a second `-serial pty` becomes UART1 ("char device redirected to /dev/pts/N (label
   serial1)"); first `-serial file:uart0.log` keeps the console. Run QEMU directly (`scripts/qemu-serial.sh` in
   mcu-ready: `esptool merge-bin --pad-to-size=4MB … @flash_args`, 1024-byte zero efuse file).
