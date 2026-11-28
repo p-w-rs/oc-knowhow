@@ -21,7 +21,13 @@ const stateDir = path.join(root, ".local", "desktop")
 // Outside the checkout: OpenCode reloads a linked plugin when files under it change (logs, indexes, downloads).
 const profiles = path.join(os.tmpdir(), "oc-enhance-desktop")
 const connectionFile = path.join(stateDir, "connection.json")
-const cli = path.join(root, ".local", "host", "node_modules", `@opencode/cli-${process.platform}-${process.arch}`, "bin", "opencode")
+// The OpenCode CLI pinned in scripts/smoke-host.mjs (installed into .local/host-<version> on first use).
+const pinnedCli = () => {
+  const output = execFileSync(process.execPath, ["--import", "tsx", path.join(root, "scripts", "smoke-host.mjs"), "--install-cli"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] })
+  const cli = /^OPENCODE_CLI=(.+)$/m.exec(output)?.[1]
+  if (!cli) throw new Error("scripts/smoke-host.mjs --install-cli did not name the OpenCode CLI")
+  return cli
+}
 const [command, ...args] = process.argv.slice(2)
 
 const envFor = profile => ({
@@ -96,7 +102,7 @@ if (command === "start") {
     providers: { probe: { package: "@opencode/ai/providers/openai-compatible", settings: { baseURL: `http://127.0.0.1:${provider.address().port}/v1`, apiKey: "synthetic" }, models: { probe: { limit: { context: 32000, output: 1024 }, capabilities: { tools: true, input: ["text"], output: ["text"] } } } } },
   }, null, 2))
   const env = envFor(profile)
-  execFileSync(cli, ["service", "set", "port", String(await freePort())], { env, cwd: profile, stdio: "pipe" })
+  execFileSync(pinnedCli(), ["service", "set", "port", String(await freePort())], { env, cwd: profile, stdio: "pipe" })
   const child = spawn(APP, ["--remote-debugging-port=0"], { env, cwd: path.join(profile, "workspace"), detached: true, stdio: ["ignore", "pipe", "pipe"] })
   let logs = ""
   const port = await new Promise((resolve, reject) => {
@@ -149,7 +155,7 @@ if (command === "start") {
   const seen = execFileSync("/bin/ps", ["-p", String(pid), "-o", "command="], { encoding: "utf8" }).trim()
   if (seen !== `${APP} --remote-debugging-port=0`) throw new Error(`PID ${pid} is not the owned Desktop`)
   process.kill(-pid, "SIGTERM")
-  try { execFileSync(cli, ["service", "stop"], { env: envFor(profile), cwd: profile, stdio: "pipe", timeout: 30_000 }) } catch {}
+  try { execFileSync(pinnedCli(), ["service", "stop"], { env: envFor(profile), cwd: profile, stdio: "pipe", timeout: 30_000 }) } catch {}
   try { const driver = Number(await readFile(path.join(stateDir, "driver.pid"), "utf8")); process.kill(driver, "SIGTERM") } catch {}
   console.log("Stopped the owned isolated Desktop and its service")
 } else {

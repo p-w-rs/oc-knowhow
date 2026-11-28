@@ -23,7 +23,7 @@ export async function ensureCli() {
   if (result.status !== 0) throw new Error(`Could not install ${cliPackage}@${OPENCODE_VERSION}`)
   return binary
 }
-if (process.argv.includes("--install-cli")) { await ensureCli(); process.exit(0) }
+if (process.argv.includes("--install-cli")) { console.log(`OPENCODE_CLI=${await ensureCli()}`); process.exit(0) }
 await ensureCli()
 
 const base = await mkdtemp(path.join(await realpath(os.tmpdir()), "oc-knowhow-smoke-"))
