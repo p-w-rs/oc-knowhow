@@ -11,7 +11,7 @@ export const KnowhowRpc = {
   id: "oc-knowhow.admin",
   methods: {
     state: { input: object({}), output },
-    update: { input: object({ ml: { type: "boolean" }, datascience: { type: "boolean" }, figures: { type: "boolean" }, odin: { type: "boolean" }, robotics: { type: "boolean" }, clibs: { type: "boolean" }, library: { type: "boolean" } }), output },
+    update: { input: object({ ml: { type: "boolean" }, datascience: { type: "boolean" }, figures: { type: "boolean" }, odin: { type: "boolean" }, robotics: { type: "boolean" }, clibs: { type: "boolean" }, jai: { type: "boolean" }, jaiRoot: { type: ["string", "null"], maxLength: 4000 }, library: { type: "boolean" } }), output },
     addFolder: { input: object({ path: { type: "string", minLength: 1, maxLength: 4000 }, name: { type: "string", maxLength: 80 } }, ["path"]), output },
     removeFolder: { input: object({ path: { type: "string", minLength: 1, maxLength: 4000 } }, ["path"]), output },
     downloadReferences: { input: object({}), output },
@@ -30,4 +30,6 @@ export interface StateView {
   readonly progress?: Progress
   readonly lastSync?: SyncReport & { readonly at: string }
   readonly search: BackendStatus & { readonly shared?: string }
+  /** The Jai compiler found on this computer (its bundle is indexed locally), and the version the skills were validated with. */
+  readonly jai: { readonly validated: string; readonly found?: { readonly version: string; readonly path: string; readonly date?: string; readonly compiler?: string; readonly newer: boolean } }
 }

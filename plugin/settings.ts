@@ -4,7 +4,7 @@ import { homedir } from "node:os"
 import { isAbsolute, join } from "node:path"
 
 export const PLUGIN_ID = "oc-knowhow"
-export const VERSION = "1.6.2"
+export const VERSION = "1.7.0"
 
 export const dataDirectory = (configured?: string) => configured ?? join(process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"), PLUGIN_ID)
 
@@ -16,6 +16,7 @@ export const GROUPS = {
   odin: ["odin", "odin-performance", "odin-targets"],
   robotics: ["zenoh", "zenoh-ros2", "mcap", "rerun", "robot-serialization", "dora", "robot-math", "mcu-tooling", "mujoco", "genesis", "isaac-sim", "opencv"],
   clibs: ["c-platform", "c-networking", "c-crypto", "c-data", "c-gamedev", "c-perf"],
+  jai: ["jai", "jai-metaprogramming", "jai-systems", "jai-modules"],
 } as const
 export type Group = keyof typeof GROUPS
 
@@ -27,17 +28,23 @@ export interface Settings {
   readonly odin: boolean
   readonly robotics: boolean
   readonly clibs: boolean
+  /** Jai skills, and the local library built from the installed Jai compiler. */
+  readonly jai: boolean
+  /** The Jai compiler folder, when it is not at ~/jai/current. */
+  readonly jaiRoot?: string
   /** Library tools (search your folders and the downloaded free references). */
   readonly library: boolean
   readonly folders: readonly LibraryFolder[]
 }
 
-export const DEFAULTS: Settings = { ml: true, datascience: true, figures: true, odin: true, robotics: true, clibs: true, library: true, folders: [] }
+export const DEFAULTS: Settings = { ml: true, datascience: true, figures: true, odin: true, robotics: true, clibs: true, jai: true, library: true, folders: [] }
 
 export function normalizeSettings(raw: unknown, base: Settings = DEFAULTS): Settings {
   const value = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {}
   const result: Record<string, unknown> = { ...base }
-  for (const key of ["ml", "datascience", "figures", "odin", "robotics", "clibs", "library"] as const) if (typeof value[key] === "boolean") result[key] = value[key]
+  for (const key of ["ml", "datascience", "figures", "odin", "robotics", "clibs", "jai", "library"] as const) if (typeof value[key] === "boolean") result[key] = value[key]
+  if (value.jaiRoot === null || value.jaiRoot === "") delete result.jaiRoot
+  else if (typeof value.jaiRoot === "string") { const path = value.jaiRoot.trim().replace(/^~(?=\/|$)/, homedir()); if (isAbsolute(path)) result.jaiRoot = path }
   if (Array.isArray(value.folders)) {
     result.folders = value.folders.flatMap(item => {
       const folder = item as Record<string, unknown>

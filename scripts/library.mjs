@@ -7,6 +7,7 @@
 //   pixi run library search "<query>" [--keyword]
 import { join, resolve } from "node:path"
 import { Backend } from "../plugin/backend.ts"
+import { detectJai, JAI_LIBRARY, jaiSources } from "../plugin/jai.ts"
 import { folderSources, Library, libraryId } from "../plugin/library.ts"
 import { downloadReferences, loadReferences, referenceSources, referenceStates, REFERENCES_LIBRARY } from "../plugin/references.ts"
 import { dataDirectory, SettingsStore } from "../plugin/settings.ts"
@@ -20,8 +21,10 @@ const runtime = async () => (await backend.runtime()) ?? (await enhance.runtime(
 const library = new Library(data, runtime)
 const references = await loadReferences()
 const downloads = join(data, "references")
+const jai = settings.current().jai ? await detectJai(settings.current().jaiRoot) : undefined
 const specs = async () => [
   { id: REFERENCES_LIBRARY, name: "Free references", sources: await referenceSources(downloads, references) },
+  ...(jai ? [{ id: JAI_LIBRARY, name: `Jai ${jai.version} (installed)`, sources: jaiSources(jai) }] : []),
   ...await Promise.all(settings.current().folders.map(async folder => ({ id: libraryId(folder.path), name: folder.name, sources: await folderSources(folder.path) }))),
 ]
 const sync = async () => {
@@ -52,7 +55,8 @@ else if (command === "search") {
   console.log(`Data: ${data}\nFolders: ${settings.current().folders.map(f => f.path).join(", ") || "(none)"}`)
   const states = await referenceStates(downloads, references)
   console.log(`Free references: ${states.filter(s => s.state === "downloaded").length} downloaded, ${states.filter(s => s.state === "missing").length} missing, ${states.filter(s => s.state === "link").length} online only`)
-  console.log(`Indexed: ${stored.length} sources, ${stored.reduce((n, s) => n + s.units.length, 0)} sections; meaning-based search: ${(await runtime()) ? "yes" : "no"}`)
+  console.log(`Jai: ${jai ? `${jai.version} at ${jai.path}` : "not found"}`)
+  console.log(`Indexed: ${stored.length} sources, ${stored.reduce((n, s) => n + s.sections, 0)} sections; meaning-based search: ${(await runtime()) ? "yes" : "no"}`)
   for (const item of stored.filter(s => s.error)) console.log(`  unreadable: ${item.meta.id}: ${item.error}`)
 }
 process.exit(0)

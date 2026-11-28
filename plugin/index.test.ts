@@ -1,7 +1,7 @@
 import { after, before, test } from "node:test"
 import assert from "node:assert/strict"
 import { createServer, type Server } from "node:http"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { Plugin } from "@opencode/plugin"
@@ -22,7 +22,7 @@ before(async () => {
 after(async () => { server.close(); await Promise.all(dirs.map(dir => rm(dir, { recursive: true, force: true }))) })
 const scratch = async () => { const dir = await mkdtemp(join(tmpdir(), "ockh-")); dirs.push(dir); return dir }
 
-async function host(options: { deny?: (path: string) => boolean } = {}) {
+async function host(options: { deny?: (path: string) => boolean; jaiRoot?: string } = {}) {
   const data = await scratch()
   const referencesFile = join(data, "refs.json")
   await writeFile(referencesFile, JSON.stringify({ sources: [
@@ -38,7 +38,8 @@ async function host(options: { deny?: (path: string) => boolean } = {}) {
   const rebuild = () => { tools.clear(); for (const t of transforms) t({ add: (tool: any) => tools.set(tool.name, tool) }) }
   const rebuildSkills = () => { skills.length = 0; for (const t of skillTransforms) t({ add: (skill: any) => skills.push(skill) }) }
   const ctx = {
-    options: { dataDirectory: data, referencesFile },
+    // Tests never pick up a Jai compiler installed on the machine running them.
+    options: { dataDirectory: data, referencesFile, jaiRoot: options.jaiRoot ?? join(data, "no-jai") },
     permission: { assert: async (input: { resources: string[] }) => { if (options.deny?.(input.resources[0]!)) throw Object.assign(new Error("denied"), { name: "Permission.BlockedError" }) } },
     tool: { transform: async (cb: any) => { transforms.push(cb); rebuild(); return { dispose: async () => {} } }, reload: async () => rebuild() },
     skill: { transform: async (cb: any) => { skillTransforms.push(cb); rebuildSkills(); return { dispose: async () => {} } }, reload: async () => rebuildSkills() },
@@ -91,10 +92,61 @@ test("a private folder is indexed; read permission on the folder is respected", 
   const folder = await scratch()
   await writeFile(join(folder, "private-notes.md"), `# Ablations\n\n${"Remove one component at a time with the same seeds and budget. ".repeat(4)}`)
   const h = await host({ deny: path => path === folder })
-  await h.rpc().addFolder({ path: folder, name: "My books" })
-  await h.until(async () => (await h.rpc().state({})).sources.some((s: { id: string }) => s.id === "private-notes"))
-  const found = await h.call("library_search", { query: "ablation same seeds", mode: "keyword" })
-  assert.match(found, /0 result\(s\).*1 hidden by read permissions/)
-  await assert.rejects(h.call("library_read", { ref: "x" }), /Not a section reference|No section/)
-  await h.cleanup()
+  try {
+    await h.rpc().addFolder({ path: folder, name: "My books" })
+    await h.until(async () => { const state = await h.rpc().state({}); return !state.progress && state.sources.some((s: { id: string }) => s.id === "private-notes") })
+    const found = await h.call("library_search", { query: "ablation same seeds", mode: "keyword" })
+    assert.match(found, /0 result\(s\).*1 hidden by read permissions/)
+    await assert.rejects(h.call("library_read", { ref: "x" }), /Not a section reference|No section/)
+    await assert.rejects(h.call("library_read", { ref: "private-notes#0" }), /denied/, "a ref naming only the source id is checked too")
+    await assert.rejects(h.call("library_catalog", { source: "private-notes" }), /denied/)
+  } finally { await h.cleanup() }
+})
+
+test("Jai: four skills with a live version note; the installed bundle becomes a local library, guarded by read permission", async () => {
+  const bundle = await scratch()
+  await mkdir(join(bundle, "modules", "Basic"), { recursive: true })
+  await mkdir(join(bundle, "modules", "d3d12"), { recursive: true })
+  await mkdir(join(bundle, "how_to"), { recursive: true })
+  await mkdir(join(bundle, "examples", "demo"), { recursive: true })
+  await mkdir(join(bundle, "bin"), { recursive: true })
+  await writeFile(join(bundle, "CHANGELOG.txt"), "Version: beta 0.2.040, 1 March 2027\n---------------------\nRenamed set_temporary_storage_mark to set_temporary_mark (example entry).\n\nVersion: beta 0.2.032, 26 November 2026\n---------------------\nOlder notes about array literals.\n")
+  await writeFile(join(bundle, "modules", "Basic", "module.jai"), "// Frees everything allocated with the temporary allocator since the program started or the last reset.\nreset_temporary_storage :: () {\n}\n")
+  await writeFile(join(bundle, "modules", "d3d12", "bindings.jai"), "ID3D12Device :: struct { unique_windows_marker: int; }\n")
+  await writeFile(join(bundle, "how_to", "012_temporary_storage.jai"), "// Temporary storage is a per-frame arena that you reset once per frame.\nmain :: () {\n}\n")
+  await writeFile(join(bundle, "examples", "demo", "first.jai"), "// Builds the demo with a metaprogram.\nbuild :: () {\n}\n")
+  const real = await realpath(bundle)
+  let denyJai = false
+  const h = await host({ jaiRoot: bundle, deny: path => denyJai && path === real })
+  try {
+    const ids = h.skills.map(s => s.id)
+    for (const id of ["jai", "jai-metaprogramming", "jai-systems", "jai-modules"]) assert.ok(ids.includes(id), `skill ${id} registered`)
+    const note = h.skills.find(s => s.id === "jai-systems")!.content
+    assert.match(note, /Validated with Jai beta 0\.2\.032/)
+    assert.match(note, /Installed here: Jai beta 0\.2\.040 \(1 March 2027\)/)
+    assert.match(note, /NEWER than the one this skill was validated with/)
+    assert.match(note, /examples\/jai\/jai-systems/)
+    // The bundle is indexed as four local sources (Windows-only bindings left out).
+    await h.rpc().reindex({})
+    await h.until(async () => { const state = await h.rpc().state({}); return !state.progress && state.sources.filter((s: { id: string }) => s.id.startsWith("jai-")).length === 4 })
+    const state = await h.rpc().state({})
+    assert.equal(state.jai.found.version, "beta 0.2.040")
+    assert.equal(state.jai.found.newer, true)
+    assert.deepEqual(state.sources.filter((s: { id: string }) => s.id.startsWith("jai-")).map((s: { id: string }) => s.id).sort(), ["jai-changelog", "jai-examples-src", "jai-how-to", "jai-modules-src"])
+    const found = await h.call("library_search", { query: "reset temporary storage", sources: ["jai-modules-src"], mode: "keyword" })
+    assert.match(found, /modules\/Basic\/module\.jai/)
+    assert.match(found, /reset_temporary_storage/)
+    assert.match(await h.call("library_search", { query: "set_temporary_mark renamed", mode: "keyword" }), /Jai CHANGELOG \(beta 0\.2\.040\) — Version: beta 0\.2\.040, 1 March 2027/)
+    assert.match(await h.call("library_search", { query: "unique_windows_marker", mode: "keyword" }), /0 result/)
+    assert.match(await h.call("library_catalog", { field: "jai" }), /jai-how-to \[Jai, local; current; \d+ sections\]/)
+    // Read permission on the Jai folder applies like on the user's own folders.
+    denyJai = true
+    assert.match(await h.call("library_search", { query: "reset temporary storage", mode: "keyword" }), /hidden by read permissions/)
+    await assert.rejects(h.call("library_read", { ref: "jai-how-to#0" }), /denied/)
+    denyJai = false
+    // Turning Jai off removes the skills and the local sources.
+    await h.rpc().update({ jai: false })
+    assert.ok(!h.skills.some(s => s.id.startsWith("jai")))
+    await h.until(async () => { const s = await h.rpc().state({}); return !s.progress && !s.sources.some((x: { id: string }) => x.id.startsWith("jai-")) })
+  } finally { await h.cleanup() }
 })

@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Backend } from "./backend.js"
-import { chunk, cleanPages, codeUnits, excerpt, folderSources, gnuplotDocUnits, htmlToText, Library, markdownUnits, pdfUnits, sourceTreeUnits } from "./library.js"
+import { changelogUnits, chunk, cleanPages, codeUnits, excerpt, folderSources, gnuplotDocUnits, htmlToText, jaiDeclarationName, jaiUnits, Library, markdownUnits, pdfUnits, sourceTreeUnits } from "./library.js"
 import { pdf } from "./testdocs.js"
 
 const dirs: string[] = []
@@ -84,6 +84,25 @@ test("a folder becomes sources described by its catalog; search cites, flags dat
   assert.equal((await library.sync([{ id: "mine", name: "Mine", sources }])).unchanged, 3)
   assert.equal((await library.sync([{ id: "mine", name: "Mine", sources: sources.slice(1) }])).removed, 1)
   assert.equal((await library.search("bootstrap resample", { mode: "keyword" })).hits.length, 0)
+})
+
+test("a bare id shared by a link in the references and the user's own copy in a folder finds the copy", async () => {
+  const folder = await libraryFolder()
+  const sources = await folderSources(folder)
+  // The same two library names with their roles swapped: whatever order the folder lists them in, one run has the link first.
+  for (const [links, copy] of [["references", "mine"], ["mine", "references"]] as const) {
+    const library = new Library(await scratch(), async () => undefined)
+    await library.sync([
+      { id: links, name: "Links", sources: [{ id: "welch", title: "Welch notes (link)", kind: "link", url: "https://example.org/welch" }] },
+      { id: copy, name: "Copy", sources },
+    ])
+    assert.equal((await library.stored()).filter(entry => entry.meta.id === "welch").length, 2)
+    const found = await library.find("welch")
+    assert.equal(found?.library, copy)
+    assert.ok(found!.sections > 0)
+    assert.equal((await library.outline("welch")).length, 2)
+    assert.equal((await library.find(`${links}--welch`))?.sections, 0, "a full key still finds the link")
+  }
 })
 
 test("a sync by another process (CLI, other window) is seen by a running library without a restart", async () => {
@@ -199,4 +218,179 @@ test("source trees skip unit tests unless the reference keeps a test folder on p
   assert.match(text, /Copies a model/)
   assert.match(text, /wanted_keyword/)
   assert.doesNotMatch(text, /test_put_model|helper_in_tests/)
+})
+
+test("Jai source splits into top-level declarations; comments, strings and here-strings don't confuse it", () => {
+  const jai = `#import "Basic";
+#load "other.jai";
+
+/* A block comment /* with a nested one */ that hides this := 1; */
+
+// Vector2 is a pair of floats.
+Vector2 :: struct {
+    x: float;
+    y: float = 1;
+}
+
+operator + :: (a: Vector2, b: Vector2) -> Vector2 { return .{a.x + b.x, a.y + b.y}; }
+
+HELP :: #string DONE
+not_a_declaration :: 42;
+  inner :: () {
+DONE
+
+// Counts things; the string below contains a brace "{" that must not open a block.
+count :: (items: [] int) -> int {
+    s := "{";
+    for items { if it > 0 then continue; }
+    return items.count;
+}
+
+#if OS == .WINDOWS {
+    windows_only :: () {}
+} else {
+    elsewhere :: () {}
+}
+
+macro_like :: () #expand { \`defer print("x"); }
+global_counter: int;
+Mode :: enum u8 { FAST; SLOW; }
+#scope_file
+private_helper :: () {}
+`
+  const units = jaiUnits("modules/Example/module.jai", jai, 120)
+  const headings = units.map(u => u.heading[1]!).join(" | ")
+  for (const name of ["#import \"Basic\"", "#load \"other.jai\"", "Vector2", "operator +", "HELP", "count", "windows_only", "elsewhere", "macro_like", "global_counter", "Mode", "#scope_file", "private_helper"]) assert.ok(headings.includes(name), `${name} in: ${headings}`)
+  for (const name of ["not_a_declaration", "inner", "this", "s", "x"]) assert.ok(!units.some(u => u.heading[1]!.split(/[,:(]/)[0]!.trim() === name), `${name} must not be a declaration: ${headings}`)
+  const vector = units.find(u => u.heading[1]!.startsWith("Vector2"))!
+  assert.match(vector.text, /Vector2 is a pair of floats/)
+  assert.match(vector.text, /^modules\/Example\/module\.jai:\d+ — Vector2, x, y/)
+  assert.match(units.find(u => u.heading[1]!.startsWith("count"))!.text, /Counts things/)
+  assert.equal(jaiDeclarationName("    x := 5;"), "x")
+  assert.equal(jaiDeclarationName("a, b :: 1, 2;"), "a,b")
+  assert.equal(jaiDeclarationName("if x == 3 { print(\"a: b\"); }"), undefined)
+  assert.equal(jaiDeclarationName("#run main();"), "#run main")
+  // The generic splitter is used for .jai through codeUnits too.
+  assert.ok(codeUnits("x.jai", "foo :: () {}\nbar :: 3;\n").some(u => /foo/.test(u.heading[1]!)))
+})
+
+test("a changelog becomes one section per version", () => {
+  const text = `Version: beta 0.2.032, 26 November 2026
+---------------------
+
+modules/Basic:
+    Renamed the 'initialized' parameter of New to 'initialize'.
+
+Version: beta 0.2.031, 25 November 2026
+---------------------
+Array literals no longer need the dot: values: [] int = [1, 4, 9];
+`
+  const units = changelogUnits(text)
+  assert.deepEqual(units.map(u => u.heading), [["Version: beta 0.2.032, 26 November 2026"], ["Version: beta 0.2.031, 25 November 2026"]])
+  assert.match(units[0]!.text, /initialize/)
+  assert.match(units[1]!.text, /Array literals/)
+  assert.deepEqual(changelogUnits("## 1.2.0 - 2026-01-02\n\n- Faster things here.\n\n## 1.1.0\n\n- Older notes go here.\n").map(u => u.heading[0]), ["1.2.0 - 2026-01-02", "1.1.0"])
+})
+
+test("one library per data folder per process; info without texts; no rebuild when nothing changed; old temp files go", async () => {
+  const data = await scratch()
+  const runtime = async () => undefined
+  assert.equal(Library.shared(data, runtime), Library.shared(join(data, "."), runtime), "the same data folder gives the same library")
+  assert.notEqual(Library.shared(data, runtime), Library.shared(await scratch(), runtime))
+  const library = new Library(data, runtime)
+  const folder = await libraryFolder()
+  const sources = await folderSources(folder)
+  await library.sync([{ id: "mine", name: "Mine", sources }])
+  const info = await library.stored()
+  assert.equal(info.length, 3)
+  assert.ok(info.every(item => typeof item.sections === "number" && !("units" in item)), "stored() returns no section texts")
+  assert.equal(info.find(item => item.meta.id === "welch")!.sections, 2)
+  // Unchanged: the index files are not rewritten.
+  const { readdir, stat: statFile, utimes } = await import("node:fs/promises")
+  const indexFile = join(data, "library", "index-v3.json")
+  const before = (await statFile(indexFile)).mtimeMs
+  await new Promise(r => setTimeout(r, 30))
+  assert.equal((await library.sync([{ id: "mine", name: "Mine", sources }])).unchanged, 3)
+  assert.equal((await statFile(indexFile)).mtimeMs, before, "no rebuild when nothing changed")
+  // A new library instance (another process) reads the same index.
+  assert.equal((await new Library(data, runtime).search("bootstrap resample", { mode: "keyword" })).hits[0]?.source, "notes")
+  // Leftovers of interrupted writes older than 10 minutes, and the old single-file index, are removed on the next sync.
+  const old = join(data, "library", "index.json.12345.tmp")
+  await writeFile(old, "x"); await writeFile(join(data, "library", "index.json"), "{}")
+  const past = new Date(Date.now() - 3600_000)
+  await utimes(old, past, past)
+  const fresh = join(data, "library", "index-v3.json.99999.abcd.tmp")
+  await writeFile(fresh, "x")
+  await library.sync([{ id: "mine", name: "Mine", sources }])
+  const names = await readdir(join(data, "library"))
+  assert.ok(!names.includes("index.json.12345.tmp") && !names.includes("index.json"), names.join(", "))
+  assert.ok(names.includes("index-v3.json.99999.abcd.tmp"), "a recent temp file may belong to a running write")
+})
+
+test("search spreads results over sources, but goes deep when sources are named", async () => {
+  const folder = await scratch()
+  for (let i = 0; i < 6; i++) await writeFile(join(folder, `part${i}.md`), `# Allocators ${i}\n\n${"Temporary storage is reset every frame by the allocator. ".repeat(3)}`)
+  await writeFile(join(folder, "catalog.json"), JSON.stringify({ sources: [] }))
+  const one = await scratch()
+  await writeFile(join(one, "book.md"), Array.from({ length: 6 }, (_, i) => `# Chapter ${i}\n\n${"Temporary storage is reset every frame by the allocator. ".repeat(3)}`).join("\n\n"))
+  const library = new Library(await scratch(), async () => undefined)
+  await library.sync([{ id: "a", name: "A", sources: await folderSources(one) }])
+  assert.equal((await library.search("temporary storage allocator", { mode: "keyword" })).hits.length, 2, "two per source by default")
+  assert.equal((await library.search("temporary storage allocator", { mode: "keyword", sources: ["book"], limit: 5 })).hits.length, 5, "all requested depth from a named source")
+})
+
+test("a catalog entry can make a sub-folder one source-tree source; edits inside it are noticed", async () => {
+  const folder = await scratch()
+  await mkdir(join(folder, "way-to-jai", "book"), { recursive: true })
+  await mkdir(join(folder, "way-to-jai", "examples"), { recursive: true })
+  await mkdir(join(folder, "junk"), { recursive: true })
+  await writeFile(join(folder, "way-to-jai", "book", "ch1.md"), `# Polymorphic procedures\n\n${"Use $T to make a procedure polymorphic over a type. ".repeat(3)}`)
+  await writeFile(join(folder, "way-to-jai", "examples", "poly.jai"), "// Squares anything with a * operator.\nsquare :: (x: $T) -> T { return x * x; }\n")
+  await writeFile(join(folder, "junk", "notes.md"), "# Junk\n\nShould not be indexed because the folder is skipped.\n")
+  await writeFile(join(folder, "blog.md"), `# Advent of code in Jai\n\n${"Notes from solving puzzles in Jai. ".repeat(4)}`)
+  await writeFile(join(folder, "catalog.json"), JSON.stringify({ sources: [
+    { file: "way-to-jai", kind: "source-tree", id: "the-way-to-jai", title: "The Way to Jai", paths: ["book", "examples"], extensions: [".jai"], status: "dated", note: "parts predate beta 0.2" },
+    { file: "junk", skip: true },
+  ] }))
+  const sources = await folderSources(folder)
+  assert.deepEqual(sources.map(s => [s.id, s.kind]), [["the-way-to-jai", "source-tree"], ["blog", "file"]])
+  const library = new Library(await scratch(), async () => undefined)
+  await library.sync([{ id: "mine", name: "Mine", sources }])
+  const hit = (await library.search("square polymorphic $T", { mode: "keyword", sources: ["the-way-to-jai"] })).hits
+  assert.ok(hit.some(h => /examples\/poly\.jai/.test(h.where)), JSON.stringify(hit))
+  assert.match(hit[0]!.note ?? "", /dated: parts predate beta 0\.2/)
+  // A change deep inside the tree (the folder's own mtime may not change) re-indexes it.
+  await new Promise(r => setTimeout(r, 20))
+  await writeFile(join(folder, "way-to-jai", "examples", "poly.jai"), "// Cubes anything.\ncube :: (x: $T) -> T { return x * x * x; }\n")
+  const report = await library.sync([{ id: "mine", name: "Mine", sources: await folderSources(folder) }])
+  assert.equal(report.updated, 1)
+  assert.equal((await library.search("cube", { mode: "keyword" })).hits[0]?.source, "the-way-to-jai")
+})
+
+test("sources stored by an older version (one JSON file each) are converted once, without re-reading the files", async () => {
+  const data = await scratch()
+  const sources = join(data, "library", "sources")
+  await mkdir(sources, { recursive: true })
+  // The file on disk says something else than the stored sections: finding the stored text proves it was not re-read.
+  const file = join(await scratch(), "old-notes.md")
+  await writeFile(file, "# Unrelated\n\nThis text was never indexed.\n")
+  const { stat: statFile } = await import("node:fs/promises")
+  const info = await statFile(file)
+  const old = { version: 1, library: "mine", meta: { id: "old-notes", title: "Old notes", status: "current" }, kind: "file", path: file, fingerprint: `file:${info.size}:${Math.round(info.mtimeMs)}:::::v2`, indexedAt: "2026-11-01T00:00:00.000Z",
+    units: [{ id: 0, heading: ["Intro"], text: "Arenas free everything at once with a single reset call." }, { id: 1, heading: ["More"], text: "Pools hand out fixed-size blocks quickly." }] }
+  await writeFile(join(sources, "mine--old-notes.json"), JSON.stringify(old))
+  await writeFile(join(data, "library", "index.json"), "{}")
+  const library = new Library(data, async () => undefined)
+  const stored = await library.stored()
+  assert.deepEqual(stored.map(item => [item.meta.id, item.sections]), [["old-notes", 2]])
+  const { readdir } = await import("node:fs/promises")
+  assert.deepEqual((await readdir(sources)).sort(), ["mine--old-notes.jsonl"], "the old file is replaced by the new format")
+  // The same fingerprint counts as unchanged, so nothing is re-read; the index is built from the converted sections.
+  const report = await library.sync([{ id: "mine", name: "Mine", sources: [{ id: "old-notes", title: "Old notes", status: "current", kind: "file", path: file }] }])
+  assert.deepEqual([report.unchanged, report.updated, report.failed.length], [1, 0, 0])
+  const hit = (await library.search("arenas reset", { mode: "keyword" })).hits[0]!
+  assert.equal(hit.source, "old-notes")
+  const section = await library.read(`${hit.ref.split("#")[0]}#1`, { neighbors: 0 })
+  assert.match(section!.text, /Pools hand out fixed-size blocks/)
+  assert.ok(!(await readdir(join(data, "library"))).includes("index.json"), "the old index file is removed")
 })

@@ -4,10 +4,11 @@ import { homedir } from "node:os"
 import { isAbsolute, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Backend, type Runtime } from "./backend.js"
+import { compareJai, detectJai, detectJails, JAI_LIBRARY, jaiSkillNote, jaiSources, VALIDATED_JAI } from "./jai.js"
 import { folderSources, Library, libraryId, type LibrarySpec, type SyncReport } from "./library.js"
 import { downloadReferences, loadReferences, referenceSources, referenceStates, REFERENCES_LIBRARY } from "./references.js"
 import { KnowhowRpc, type StateView } from "./rpc.js"
-import { dataDirectory, GROUPS, PLUGIN_ID, SettingsStore, VERSION, type Group } from "./settings.js"
+import { dataDirectory, DEFAULTS, GROUPS, PLUGIN_ID, SettingsStore, VERSION, type Group } from "./settings.js"
 
 export { PLUGIN_ID, VERSION }
 
@@ -16,16 +17,25 @@ export interface KnowhowOptions {
   readonly dataDirectory?: string
   /** Absolute path of a references.json to use instead of the bundled one (tests). */
   readonly referencesFile?: string
+  /** Absolute path of the Jai compiler folder when it is not at ~/jai/current (the setting takes precedence). */
+  readonly jaiRoot?: string
 }
 
 export function parseOptions(raw: unknown): KnowhowOptions {
   const options = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
-  for (const key of ["dataDirectory", "referencesFile"]) if (options[key] !== undefined && (typeof options[key] !== "string" || !isAbsolute(options[key] as string))) throw new Error(`${PLUGIN_ID}: ${key} must be an absolute path`)
-  return Object.fromEntries(["dataDirectory", "referencesFile"].filter(key => options[key] !== undefined).map(key => [key, options[key]])) as KnowhowOptions
+  const keys = ["dataDirectory", "referencesFile", "jaiRoot"]
+  for (const key of keys) if (options[key] !== undefined && (typeof options[key] !== "string" || !isAbsolute(options[key] as string))) throw new Error(`${PLUGIN_ID}: ${key} must be an absolute path`)
+  return Object.fromEntries(keys.filter(key => options[key] !== undefined).map(key => [key, options[key]])) as KnowhowOptions
 }
 
 const SKILLS = fileURLToPath(new URL("../skill/", import.meta.url))
 const EXAMPLES = fileURLToPath(new URL("../examples/", import.meta.url))
+const JAI_RUNNER = fileURLToPath(new URL("../scripts/jai-examples.mjs", import.meta.url))
+const JAILS_QUERY = fileURLToPath(new URL("../scripts/jails-query.mjs", import.meta.url))
+
+/** When this process last synced each data folder, and with which libraries (plugin instances share one library). */
+const syncedAt: Map<string, { key: string; at: number }> = ((globalThis as Record<symbol, unknown>)[Symbol.for("oc-knowhow.synced")] ??= new Map()) as Map<string, { key: string; at: number }>
+const specsKey = (specs: readonly LibrarySpec[]) => JSON.stringify(specs.map(spec => [spec.id, spec.sources.map(source => [source.id, source.path ?? source.url ?? "", source.version ?? "", source.status ?? ""])]))
 /** Pointer for the agent: verified sources beat memory for anything quoted or cited. */
 export const LIBRARY_HINT = "Reference library (oc-knowhow): before you quote, cite, or state exact wording, numbers, assumptions or syntax from a standard, paper, manual or textbook, check it with library_search (then library_read) and cite the section it returns. Prefer that over memory or web search; say so when the library has nothing."
 const warn = (message: string, error?: unknown) => console.warn(`[${PLUGIN_ID}] ${message}${error ? `: ${error instanceof Error ? error.message : String(error)}` : ""}`)
@@ -53,22 +63,37 @@ export function createPlugin(): Plugin.Plugin {
         const settings = await SettingsStore.open(data)
         const backend = new Backend(join(data, "search"))
         const runtime = () => sharedRuntime(backend)
-        const library = new Library(data, runtime)
+        // One library per process and data folder: OpenCode loads this plugin once per project location.
+        const library = Library.acquire(data, runtime)
+        registrations.push({ dispose: () => library.release() })
         const references = await loadReferences(options.referencesFile)
         const downloads = join(data, "references")
         let referenceErrors: Record<string, string> = {}
         try { referenceErrors = JSON.parse(await readFile(join(downloads, "errors.json"), "utf8")) } catch {}
         let lastSync: (SyncReport & { at: string }) | undefined
         let busy: Promise<unknown> | undefined
+        let jai = await detectJai(settings.current().jaiRoot ?? options.jaiRoot).catch(() => undefined)
+        let jails = await detectJails().catch(() => undefined)
 
         const specs = async (): Promise<LibrarySpec[]> => [
           { id: REFERENCES_LIBRARY, name: "Free references", sources: await referenceSources(downloads, references) },
+          ...(settings.current().jai && jai ? [{ id: JAI_LIBRARY, name: `Jai ${jai.version} (installed)`, sources: jaiSources(jai) }] : []),
           ...await Promise.all(settings.current().folders.map(async folder => ({ id: libraryId(folder.path), name: folder.name, sources: await folderSources(folder.path) }))),
         ]
-        const sync = async () => { const report = await library.sync(await specs()); lastSync = { ...report, at: new Date().toISOString() }; return report }
+        const sync = async () => {
+          const wanted = await specs()
+          const report = await library.sync(wanted)
+          lastSync = { ...report, at: new Date().toISOString() }
+          syncedAt.set(data, { key: specsKey(wanted), at: Date.now() })
+          return report
+        }
         const background = (task: () => Promise<unknown>) => { busy ??= task().catch(error => warn("library update failed", error)).finally(() => { busy = undefined }); return busy }
 
         const folderOf = (libraryKey: string) => settings.current().folders.find(folder => libraryId(folder.path) === libraryKey)
+        /** Libraries whose sections are private files on this computer: searching them needs read permission on their folder. */
+        const guardOf = (libraryKey: string): { name: string; path: string } | undefined =>
+          libraryKey === JAI_LIBRARY ? (jai ? { name: "Jai", path: jai.path } : { name: "Jai", path: join(homedir(), "jai") }) : folderOf(libraryKey)
+        const libraryName = (libraryKey: string) => libraryKey === REFERENCES_LIBRARY ? "free" : libraryKey === JAI_LIBRARY ? "Jai, local" : folderOf(libraryKey)?.name ?? libraryKey
         const assertRead = async (context: { sessionID: string; agent: string; messageID: string; id: string }, path: string) => ctx.permission.assert({
           sessionID: context.sessionID, agent: context.agent, action: "read", resources: [path], save: [path],
           source: { type: "tool", messageID: context.messageID, id: context.id },
@@ -80,12 +105,15 @@ export function createPlugin(): Plugin.Plugin {
           if (!settings.current().library) return
           editor.add({
             name: "library_catalog",
-            description: "List the reference library: free references (statistics, experiment design, datasets, ML evaluation, reporting standards, visualization, gnuplot, diagrams) and the user's own folders, each with what it is good for and its status (current, dated, superseded). Use it to pick sources, then library_search. Pass source=<id> for its table of contents.",
-            input: { type: "object", properties: { source: { type: "string", maxLength: 200 }, field: { type: "string", maxLength: 60, description: "e.g. statistics, ml, datasets, causal, clinical, gnuplot, diagrams" } }, additionalProperties: false } as never,
+            description: "List the reference library: free references (statistics, experiment design, datasets, ML evaluation, reporting standards, visualization, gnuplot, diagrams, Odin, C libraries, robotics), the Jai compiler's own lessons, module source and changelog when Jai is installed, and the user's own folders, each with what it is good for and its status (current, dated, superseded). Use it to pick sources, then library_search. Pass source=<id> for its table of contents.",
+            input: { type: "object", properties: { source: { type: "string", maxLength: 200 }, field: { type: "string", maxLength: 60, description: "e.g. statistics, ml, datasets, causal, clinical, gnuplot, diagrams, odin, jai" } }, additionalProperties: false } as never,
             options: { codemode: false },
-            execute: async (raw: unknown) => {
+            execute: async (raw: unknown, context) => {
               const input = raw as { source?: string; field?: string }
               if (input.source) {
+                const item = await library.find(input.source)
+                const guard = item && guardOf(item.library)
+                if (guard) await assertRead(context, guard.path)
                 const outline = await library.outline(input.source)
                 if (!outline.length) throw new Error(`No indexed source ${JSON.stringify(input.source)} (see library_catalog without arguments)`)
                 return text(`Sections of ${input.source} (read with library_read ref=…):\n${outline.slice(0, 400).map(item => `- ${item.ref}  ${item.where}`).join("\n")}${outline.length > 400 ? `\n… ${outline.length - 400} more` : ""}`)
@@ -94,8 +122,8 @@ export function createPlugin(): Plugin.Plugin {
               const field = input.field?.toLowerCase()
               const lines = stored.filter(item => !field || (item.meta.fields ?? []).some(value => value.toLowerCase() === field)).map(item => {
                 const meta = item.meta
-                const folder = item.library === REFERENCES_LIBRARY ? "free" : folderOf(item.library)?.name ?? item.library
-                return `- ${meta.id} [${folder}; ${meta.status ?? "unknown"}${meta.supersededBy ? ` → ${meta.supersededBy}` : ""}${item.units.length ? `; ${item.units.length} sections` : item.kind === "link" ? "; online only" : ""}${item.error ? `; NOT READABLE: ${item.error.slice(0, 80)}` : ""}] ${meta.title}${meta.authors ? ` — ${meta.authors}` : ""}${meta.year ? ` (${meta.year})` : ""}${meta.useFor ? `\n    use for: ${meta.useFor}` : ""}${meta.note ? `\n    note: ${meta.note}` : ""}${item.kind === "link" && meta.url ? `\n    read online: ${meta.url}` : ""}`
+                const folder = libraryName(item.library)
+                return `- ${meta.id} [${folder}; ${meta.status ?? "unknown"}${meta.supersededBy ? ` → ${meta.supersededBy}` : ""}${item.sections ? `; ${item.sections} sections` : item.kind === "link" ? "; online only" : ""}${item.error ? `; NOT READABLE: ${item.error.slice(0, 80)}` : ""}] ${meta.title}${meta.authors ? ` — ${meta.authors}` : ""}${meta.year ? ` (${meta.year})` : ""}${meta.useFor ? `\n    use for: ${meta.useFor}` : ""}${meta.note ? `\n    note: ${meta.note}` : ""}${item.kind === "link" && meta.url ? `\n    read online: ${meta.url}` : ""}`
               })
               const missing = (await referenceStates(downloads, references)).filter(state => state.state === "missing").length
               return text([
@@ -107,7 +135,7 @@ export function createPlugin(): Plugin.Plugin {
           })
           editor.add({
             name: "library_search",
-            description: "Search the reference library (books, papers, manuals, standards, gnuplot demos; the user's own folders and free references) for ground truth: methods, definitions, assumptions, recommended practice, worked examples, exact syntax. Returns passages with section/page citations and each source's status; dated sources are flagged. Then library_read for the full section.",
+            description: "Search the reference library (books, papers, manuals, standards, pinned library and language source code, gnuplot demos; the installed Jai compiler's lessons, modules and changelog; the user's own folders and free references) for ground truth: methods, definitions, assumptions, recommended practice, worked examples, exact syntax and signatures. Returns passages with section/page citations and each source's status; dated sources are flagged. Then library_read for the full section.",
             input: {
               type: "object",
               properties: {
@@ -126,8 +154,8 @@ export function createPlugin(): Plugin.Plugin {
               let hidden = 0
               const hits = []
               for (const hit of result.hits) {
-                const folder = folderOf(hit.ref.split("--")[0]!)
-                if (folder) { try { await assertRead(context, folder.path) } catch (error) { if (blocked(error)) { hidden++; continue } throw error } }
+                const guard = guardOf(hit.ref.split("--")[0]!)
+                if (guard) { try { await assertRead(context, guard.path) } catch (error) { if (blocked(error)) { hidden++; continue } throw error } }
                 hits.push(hit)
               }
               const lines = [`${hits.length} result(s), ${result.mode} ranking${hidden ? `; ${hidden} hidden by read permissions` : ""}.${result.note ? ` ${result.note}` : ""}`]
@@ -143,8 +171,10 @@ export function createPlugin(): Plugin.Plugin {
             options: { codemode: false },
             execute: async (raw: unknown, context) => {
               const input = raw as { ref: string; neighbors?: number }
-              const folder = folderOf(input.ref.split("--")[0]!)
-              if (folder) await assertRead(context, folder.path)
+              // The ref may name a source by its id alone: find its library first, so private folders are always checked.
+              const item = await library.find(input.ref.replace(/#\d+$/, ""))
+              const guard = guardOf(item?.library ?? input.ref.split("--")[0]!)
+              if (guard) await assertRead(context, guard.path)
               const section = await library.read(input.ref, { neighbors: input.neighbors ?? 0 })
               if (!section) throw new Error(`No section ${input.ref}. Use library_search or library_catalog source=<id>.`)
               const meta = section.meta
@@ -167,7 +197,12 @@ export function createPlugin(): Plugin.Plugin {
           })))).flat()
           registrations.push(await ctx.skill.transform(editor => {
             const current = settings.current()
-            for (const skill of skills) if (current[skill.group]) editor.add({ id: skill.id as never, name: skill.id as never, description: skill.description, path: skill.path as never, content: skill.content })
+            for (const skill of skills) {
+              if (!current[skill.group]) continue
+              // Jai skills carry a live note: the installed compiler and how it compares with the validated version.
+              const content = skill.group === "jai" ? skill.content + jaiSkillNote(skill.id, jai, { examples: EXAMPLES, runner: JAI_RUNNER, libraryOn: current.library, jailsQuery: JAILS_QUERY, ...(jails && { jails }) }) : skill.content
+              editor.add({ id: skill.id as never, name: skill.id as never, description: skill.description, path: skill.path as never, content })
+            }
           }))
           skillReady = true
         } catch (error) { warn("skills not registered", error) }
@@ -179,13 +214,33 @@ export function createPlugin(): Plugin.Plugin {
 
         let reloading: Promise<void> | undefined
         const reload = () => { reloading ??= Promise.all([ctx.tool.reload(), skillReady ? ctx.skill.reload() : undefined]).then(() => {}).catch(error => warn("reload failed", error)).finally(() => { reloading = undefined }); return reloading }
-        let lastFolders = JSON.stringify(settings.current().folders)
+        const librarySettings = (current: typeof DEFAULTS) => JSON.stringify([current.folders, current.jai, current.jaiRoot ?? ""])
+        let lastLibrary = librarySettings(settings.current())
+        const redetect = async () => {
+          const found = await detectJai(settings.current().jaiRoot ?? options.jaiRoot).catch(() => undefined)
+          const foundJails = await detectJails().catch(() => undefined)
+          const changed = JSON.stringify(found ?? null) !== JSON.stringify(jai ?? null) || foundJails !== jails
+          jai = found
+          jails = foundJails
+          return changed
+        }
         registrations.push({ dispose: settings.watch(current => {
-          void reload()
-          if (JSON.stringify(current.folders) !== lastFolders) { lastFolders = JSON.stringify(current.folders); void background(sync) }
+          void (async () => {
+            if (librarySettings(current) !== lastLibrary) { lastLibrary = librarySettings(current); await redetect(); void background(sync) }
+            await reload()
+          })()
         }) })
-        // Pick up new or changed files in the user's folders without blocking startup.
-        const timer = setTimeout(() => void background(sync), 5000)
+        // A new Jai beta installed (e.g. ~/jai/current pointing to a new folder): new skill notes and library sources.
+        const jaiTimer = setInterval(() => void redetect().then(changed => { if (changed) { void reload(); void background(sync) } }), 60_000)
+        jaiTimer.unref?.()
+        registrations.push({ dispose: () => clearInterval(jaiTimer) })
+        // Pick up new or changed files without blocking startup. Every project location loads this plugin; the first
+        // one checks, the others skip unless the libraries differ or the last check is old.
+        const timer = setTimeout(() => void (async () => {
+          const last = syncedAt.get(data)
+          if (last && Date.now() - last.at < 10 * 60_000 && last.key === specsKey(await specs())) return
+          await background(sync)
+        })().catch(error => warn("library update failed", error)), 5000)
         timer.unref?.()
         registrations.push({ dispose: () => clearTimeout(timer) })
 
@@ -197,7 +252,8 @@ export function createPlugin(): Plugin.Plugin {
           return {
             version: VERSION, settings: settings.current(), dataDirectory: data,
             references: await referenceStates(downloads, references, referenceErrors),
-            sources: stored.map(item => ({ library: item.library === REFERENCES_LIBRARY ? "Free references" : folderOf(item.library)?.name ?? item.library, id: item.meta.id, title: item.meta.title, status: item.meta.status ?? "unknown", sections: item.units.length, ...(item.error && { error: item.error }) })),
+            sources: stored.map(item => ({ library: item.library === REFERENCES_LIBRARY ? "Free references" : item.library === JAI_LIBRARY ? `Jai ${jai?.version ?? ""} (installed)`.replace("  ", " ") : folderOf(item.library)?.name ?? item.library, id: item.meta.id, title: item.meta.title, status: item.meta.status ?? "unknown", sections: item.sections, ...(item.error && { error: item.error }) })),
+            jai: { validated: VALIDATED_JAI, ...(jai && { found: { version: jai.version, path: jai.path, ...(jai.date && { date: jai.date }), ...(jai.compiler && { compiler: jai.compiler }), newer: compareJai(jai.version, VALIDATED_JAI) > 0 } }) },
             ...(library.progress && { progress: library.progress }), ...(lastSync && { lastSync }),
             search: { ...own, installed: own.installed || !!shared, ...(shared && { shared }) },
           }
@@ -211,14 +267,14 @@ export function createPlugin(): Plugin.Plugin {
             const { stat } = await import("node:fs/promises")
             if (!isAbsolute(resolved) || !(await stat(resolved).then(info => info.isDirectory(), () => false))) throw new Error(`${path} is not a folder`)
             await settings.update({ folders: [...settings.current().folders.filter(folder => folder.path !== resolved), { path: resolved, ...(name && { name }) }] })
-            lastFolders = JSON.stringify(settings.current().folders)
+            lastLibrary = librarySettings(settings.current())
             void background(sync)
             return state()
           },
           removeFolder: async (input: unknown) => {
             const { path } = input as { path: string }
             await settings.update({ folders: settings.current().folders.filter(folder => folder.path !== path) })
-            lastFolders = JSON.stringify(settings.current().folders)
+            lastLibrary = librarySettings(settings.current())
             void background(sync)
             return state()
           },

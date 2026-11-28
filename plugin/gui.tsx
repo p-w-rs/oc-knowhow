@@ -11,6 +11,7 @@ function KnowhowView(props: { ctx: Context }) {
   const [state, setState] = createSignal<StateView>()
   const [error, setError] = createSignal<string>()
   const [folder, setFolder] = createSignal("")
+  const [jaiFolder, setJaiFolder] = createSignal("")
   const api = () => ctx.client.rpc(KnowhowRpc)
   const refresh = async () => { try { setState(await api().state({}) as unknown as StateView); setError(undefined) } catch (cause) { setError(message(cause)) } }
   const act = async (action: () => Promise<unknown>, success?: string) => {
@@ -22,7 +23,7 @@ function KnowhowView(props: { ctx: Context }) {
     const timer = setInterval(() => { if (state()?.progress || state()?.search.installing || !state()) void refresh() }, 1500)
     onCleanup(() => clearInterval(timer))
   })
-  const toggle = (key: "ml" | "datascience" | "figures" | "odin" | "robotics" | "clibs" | "library", title: string, text: string) => (
+  const toggle = (key: "ml" | "datascience" | "figures" | "odin" | "robotics" | "clibs" | "jai" | "library", title: string, text: string) => (
     <div style={card}>
       <ctx.ui.Switch label={title} checked={state()!.settings[key]} onChange={value => void act(() => api().update({ [key]: value }))} />
       <span style={muted}>{text}</span>
@@ -42,6 +43,23 @@ function KnowhowView(props: { ctx: Context }) {
         {toggle("ml", "Machine learning", "Skills: ml-training (CUDA/ROCm Pixi environments, MLflow), ml-data (formats and loaders that keep GPUs busy), ml-tuning (Smith's LR range test and 1cycle, batch size, optimizers incl. Muon, normalization, regularization, EMA), ml-qat (quantization-aware training), ml-metrics (COCO AP/AR, TIDE, and metrics for every task), ml-deploy (TensorRT 11 and Jetson) and gpu-kernels (Triton, CUDA/HIP).")}
         {toggle("odin", "Odin", "Skills: odin (language, core and vendor packages, the compiler at expert level, C interop, testing), odin-performance (allocators and memory strategies, data-oriented design, SIMD, profiling) and odin-targets (embedded/freestanding and WebAssembly). The library holds the Odin core and vendor source to search.")}
         {toggle("robotics", "Robotics", "Skills: zenoh (pub/sub, queries, routers, security, shared memory, zenoh-pico), zenoh-ros2 (rmw_zenoh, zenoh-bridge-ros2dds), mcap (recording and reading logs), rerun (visualizing robot data), robot-serialization (FlatBuffers, Protobuf over Zenoh and MCAP), dora (dataflow robotics), robot-math (Eigen, Lie groups, GTSAM, Ceres, ICP), mcu-tooling (probe-rs, Renode, pico-sdk, ESP-IDF), simulators mujoco (incl. MJX/Warp), genesis and isaac-sim (incl. Isaac Lab), and opencv (calibration, geometry, features, video, DNN).")}
+        <div style={card}>
+          <ctx.ui.Switch label="Jai" checked={current().settings.jai} onChange={value => void act(() => api().update({ jai: value }))} />
+          <span style={muted}>Skills: jai (the language and compiler, habits from C, C++ and Odin that are wrong in Jai, how to probe and learn it), jai-metaprogramming (#run, polymorphism, #insert, macros, for_expansion, type info, build metaprograms and the Compiler module), jai-systems (context, allocators, temporary storage, performance, profiling, threads, debugging) and jai-modules (the bundled modules, writing modules, C interop and bindings, platforms). Validated with {current().jai.validated}, with tested examples. The Jai beta is not redistributable: the library indexes your installed compiler's lessons, module source and changelog on this computer only.</span>
+          <Show when={current().settings.jai}>
+            <Show when={current().jai.found} fallback={<span style={{ ...muted, color: "#e8590c" }}>No Jai compiler found (looked in ~/jai/current and ~/jai). Unpack the beta there, or enter its folder:</span>}>{found => (
+              <span style={muted}>
+                Installed: Jai {found().version}{found().date ? ` (${found().date})` : ""} at {found().path}{found().compiler ? "" : " (no compiler for this OS in bin/)"}.
+                {found().newer ? ` Newer than the validated ${current().jai.validated}: agents are told to check the changelog and re-run the examples.` : ""}
+              </span>
+            )}</Show>
+            <div style={{ display: "flex", gap: "6px", "align-items": "center" }}>
+              <ctx.ui.TextInput label="Jai folder" placeholder={current().settings.jaiRoot ?? "~/jai/current"} value={jaiFolder()} onInput={setJaiFolder} />
+              <ctx.ui.Button size="small" disabled={!jaiFolder().trim()} onClick={() => void act(async () => { const next = await api().update({ jaiRoot: jaiFolder().trim() }); setJaiFolder(""); return next }, "Jai folder set; indexing in the background")}>Use folder</ctx.ui.Button>
+              <Show when={current().settings.jaiRoot}><ctx.ui.Button size="small" variant="ghost" onClick={() => void act(() => api().update({ jaiRoot: null }), "Using ~/jai/current")}>Reset</ctx.ui.Button></Show>
+            </div>
+          </Show>
+        </div>
         {toggle("clibs", "C libraries", "Skills: c-platform (SDL3, sokol, clay), c-networking (ENet, librg, zpl), c-crypto (Monocypher, libsodium, encrypting ENet), c-data (yyjson, xxHash, zstd, lz4), c-gamedev (flecs, Jolt, meshoptimizer, ufbx, cgltf) and c-perf (Tracy, mimalloc, rpmalloc), from C and from Odin. The library holds their source to search.")}
         <div style={card}>
           <ctx.ui.Switch label="Reference library" checked={current().settings.library} onChange={value => void act(() => api().update({ library: value }))} />
@@ -52,7 +70,7 @@ function KnowhowView(props: { ctx: Context }) {
               <Show when={counts().missing}><ctx.ui.Button size="small" variant="contrast" icon="download" onClick={() => void act(() => api().downloadReferences({}), "Downloading in the background")}>Download free references</ctx.ui.Button></Show>
             </div>
             <Show when={current().references.some(item => item.error)}><span style={{ ...muted, color: "#e03131" }}>Could not download: {current().references.filter(item => item.error).map(item => item.title).join(", ")}</span></Show>
-            <span style={muted}>Your folders (private; PDFs, web pages, Markdown, notebooks, Office files; an optional catalog.json describes each file):</span>
+            <span style={muted}>Your folders (private; PDFs, web pages, Markdown, notebooks, Office files, source code; an optional catalog.json describes each file, or turns a sub-folder such as a cloned repository into one source):</span>
             <For each={current().settings.folders}>{item => (
               <div style={{ display: "flex", gap: "8px", "align-items": "center" }}>
                 <span style={{ flex: 1 }}><b>{item.name}</b> <span style={muted}>{item.path}</span></span>
@@ -87,7 +105,7 @@ export default Plugin.define({
   setup(ctx) {
     ctx.add(SettingsPage, {
       id: "knowhow", title: "Know-how", icon: "graduation-cap",
-      entries: [{ id: "knowhow", title: "Know-how", description: "Skills and the reference library for data science, figures, diagrams, machine learning, Odin, robotics data (Zenoh, ROS 2, MCAP) and C libraries", keywords: "oc-knowhow odin zenoh ros2 mcap sdl3 sokol enet statistics data science experiment ablation datasets gnuplot plots figures diagrams d2 graphviz tikz library references tensorrt" }],
+      entries: [{ id: "knowhow", title: "Know-how", description: "Skills and the reference library for data science, figures, diagrams, machine learning, Odin, Jai, robotics data (Zenoh, ROS 2, MCAP) and C libraries", keywords: "oc-knowhow odin jai metaprogramming zenoh ros2 mcap sdl3 sokol enet statistics data science experiment ablation datasets gnuplot plots figures diagrams d2 graphviz tikz library references tensorrt" }],
       render: () => (
         <ctx.ui.SettingsLayout title="Know-how" description="Expert know-how agents load when a task needs it, and a private reference library they can cite.">
           <KnowhowView ctx={ctx} />

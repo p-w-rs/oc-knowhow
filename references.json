@@ -4155,6 +4155,582 @@
       ],
       "status": "current",
       "useFor": "rendered API reference; 4.x docs at https://docs.opencv.org/4.x/; migration guide https://github.com/opencv/opencv/wiki/OpenCV-4-to-5-migration"
+    },
+    {
+      "id": "the-way-to-jai",
+      "title": "The Way to Jai (commit 19cb4b7)",
+      "authors": "Ivo Balbaert",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/Ivo-Balbaert/The_Way_to_Jai/tar.gz/19cb4b7acb0de2798c769f9ad73313a4d15f4056",
+      "version": "19cb4b7",
+      "paths": [
+        "README.md",
+        "book",
+        "examples",
+        "Appendix C - Directives.md",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".jai"
+      ],
+      "exclude": [
+        "examples/.build",
+        "examples/22/.build",
+        "examples/30/jai_raylib",
+        "examples/35/raylib",
+        "examples/52/raylib",
+        "examples/33/glfw"
+      ],
+      "license": "Apache-2.0 (LICENSE)",
+      "fields": [
+        "jai",
+        "source"
+      ],
+      "status": "dated",
+      "useFor": "gentle ordered tutorial (61 chapters) with ~315 runnable examples: setup, types, structs, enums, arrays, strings, procedures, polymorphism, context, metaprogramming, build system, threads, C interop",
+      "note": "compiles with beta 0.2.032: 231 of 315 example files; 34 failures are real language changes (#place, #must, enum .loose, Context, get_time, allocator= parameters, make_vector2(x,y), bubble_sort, #foreign_library, local forward references), the rest are x64 asm, Windows-only or fragments. Text checked by the author up to §8 against 0.2.024; later chapters and Appendix C still teach removed features. Prefer how_to where they differ."
+    },
+    {
+      "id": "jails-source",
+      "title": "Jails, Jai language server (commit 42fa76c)",
+      "authors": "Patrik Smělý (SogoCZE)",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/SogoCZE/Jails/tar.gz/42fa76c816ad34c9f24a4bde586d145c992dc860",
+      "version": "42fa76c",
+      "paths": [
+        "readme.md",
+        "build.jai",
+        "server",
+        "metaprogram",
+        "docs",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".jai"
+      ],
+      "exclude": [],
+      "license": "MIT (LICENSE)",
+      "fields": [
+        "jai",
+        "source",
+        "tooling"
+      ],
+      "status": "current",
+      "useFor": "editor support (LSP) setup and jails.json; a real build metaprogram with workspaces, intercept and message loop; detecting the LSP diagnostics build with #exists(JAILS_DIAGNOSTICS_BUILD); JSON-RPC over stdio in Jai",
+      "note": "compiles with beta 0.2.032: yes (jai build.jai - -release, 4.6 s on M-series Mac; the server answers LSP initialize). Submodules (jaison, jai_parser, jai-unicode, jai-tracy) are not in the tarball: see their own entries."
+    },
+    {
+      "id": "jai-parser-source",
+      "title": "jai_parser, a Jai lexer and parser in Jai (commit 92b9876)",
+      "authors": "Patrik Smělý (SogoCZE)",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/SogoCZE/jai_parser/tar.gz/92b98762d94ad702b02eda7cd6ed6149e422aba9",
+      "version": "92b9876",
+      "paths": [
+        "readme.md",
+        "module.jai",
+        "lexer.jai",
+        "parser.jai",
+        "ast_print.jai",
+        "cmd",
+        "tests",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".jai"
+      ],
+      "exclude": [
+        "cmd/modules"
+      ],
+      "license": "MIT (LICENSE)",
+      "fields": [
+        "jai",
+        "source",
+        "tooling"
+      ],
+      "status": "current",
+      "useFor": "the grammar as the community understands it in 2026; tests/ has one small input per newer syntax form (tagged unions 'union kind: Enum', dot-less literals, cast(T, x), (.*) prefix dereference, f(x,, temp), #Context, #exists, named returns)",
+      "note": "compiles with beta 0.2.032: yes (cmd/build.jai; parsed tests/dotless_struct_literal.jai). Updated 26 Nov 2026 for the newest beta. The tests are parser inputs, not runnable programs."
+    },
+    {
+      "id": "jaison-source",
+      "title": "jaison, JSON for Jai (commit 2009cdb)",
+      "authors": "Raphael Luba",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/rluba/jaison/tar.gz/2009cdb5895d36020b5a3e6be8976db4706518a9",
+      "version": "2009cdb",
+      "paths": [
+        "readme.md",
+        "module.jai",
+        "generic.jai",
+        "typed.jai",
+        "examples",
+        "tests.jai",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".jai"
+      ],
+      "exclude": [],
+      "license": "MIT (LICENSE)",
+      "fields": [
+        "jai",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "runtime reflection done well: typed JSON (de)serialization driven by Type_Info, member notes for renaming, enum and union handling, temporary-allocator use, memory-debugger leak tests",
+      "note": "compiles with beta 0.2.032: yes (examples/example.jai runs; tests.jai reports 0 leaks with the memory debugger)."
+    },
+    {
+      "id": "uniform-regex-source",
+      "title": "uniform, regular expressions for Jai (commit d624b6d)",
+      "authors": "Raphael Luba",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/rluba/uniform/tar.gz/d624b6d6c77cafcb8393e510e08c8102ddc09f86",
+      "version": "d624b6d",
+      "paths": [
+        "readme.md",
+        "module.jai",
+        "first.jai",
+        "parse.jai",
+        "compile.jai",
+        "program.jai",
+        "nfa.jai",
+        "match.jai",
+        "simplify.jai",
+        "char_class.jai",
+        "rune.jai",
+        "sparse.jai",
+        "walk.jai",
+        "tests",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".jai"
+      ],
+      "exclude": [],
+      "license": "MIT (LICENSE)",
+      "fields": [
+        "jai",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "a substantial algorithmic module (RE2-style NFA regex) and a test build driven from first.jai with stubborn",
+      "note": "compiles with beta 0.2.032: after a one-word fix (NewArray(..., initialized = false) -> initialize, renamed in 0.2.032); then 146 tests pass, 0 fail."
+    },
+    {
+      "id": "stubborn-source",
+      "title": "stubborn, compile-time test runner and matchers for Jai (commit a74d422)",
+      "authors": "Raphael Luba",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/rluba/stubborn/tar.gz/a74d422f6290ca734e13510b827824b843bd0a42",
+      "version": "a74d422",
+      "paths": [
+        "readme.md",
+        "module.jai",
+        "run.jai",
+        "description.jai",
+        "matchers",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".jai"
+      ],
+      "exclude": [],
+      "license": "MIT (LICENSE)",
+      "fields": [
+        "jai",
+        "source",
+        "testing"
+      ],
+      "status": "current",
+      "useFor": "testing in Jai: @Test notes in *.spec.jai files found and run at compile time by a metaprogram, parameterized tests via *_params arrays, failures reported as compile errors at the assert",
+      "note": "compiles with beta 0.2.032: yes (drives the uniform and jai-microz test suites)."
+    },
+    {
+      "id": "jai-csv-source",
+      "title": "jai-csv (commit df76cdc)",
+      "authors": "Raphael Luba",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/rluba/jai-csv/tar.gz/df76cdc354c8c216c866ad52999877011876dad2",
+      "version": "df76cdc",
+      "paths": [
+        "readme.md",
+        "module.jai",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".jai"
+      ],
+      "exclude": [],
+      "license": "MIT (LICENSE)",
+      "fields": [
+        "jai",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "small typed CSV reader: a compact example of reflection-driven parsing into structs",
+      "note": "compiles with beta 0.2.032: not built separately (single module, same author and era as jaison)."
+    },
+    {
+      "id": "hyperserve-source",
+      "title": "hyperserve, HTTP server framework for Jai (commit 8eb62a8)",
+      "authors": "Raphael Luba",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/rluba/hyperserve/tar.gz/8eb62a8e8117a022ac704a303600660cefd9199f",
+      "version": "8eb62a8",
+      "paths": [
+        "readme.md",
+        "module.jai",
+        "routes.jai",
+        "yield.jai",
+        "examples",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".jai"
+      ],
+      "exclude": [],
+      "license": "MIT (LICENSE)",
+      "fields": [
+        "jai",
+        "source",
+        "networking"
+      ],
+      "status": "current",
+      "useFor": "networking in Jai on Linux/macOS: a Wait_Group event loop on the main thread, request threads, routes, auth hooks that yield to queued async tasks",
+      "note": "compiles with beta 0.2.032: not built (author marks it 'very much not done'). Updated 19 Nov 2026."
+    },
+    {
+      "id": "jai-xml-source",
+      "title": "jai-xml (JXML) DOM parser (commit bf984d4)",
+      "authors": "Smári McCarthy",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/smari/jai-xml/tar.gz/bf984d4a13a273d12e28418e316e7716886ec161",
+      "version": "bf984d4",
+      "paths": [
+        "README.md",
+        "module.jai",
+        "dom.jai",
+        "parsing.jai",
+        "unicode.jai",
+        "performance.jai",
+        "examples",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".jai"
+      ],
+      "exclude": [
+        "test_data"
+      ],
+      "license": "Apache-2.0 (LICENSE)",
+      "fields": [
+        "jai",
+        "source"
+      ],
+      "status": "current",
+      "useFor": "parser design with polymorphic structs and type restrictions ($T/Parser), module parameters, for_expansion over a DOM, walk callbacks",
+      "note": "compiles with beta 0.2.032: yes on x64; on arm64 import it with (USE_SIMD_STRING_SEARCH=false) because the default uses x64 #asm (examples then run)."
+    },
+    {
+      "id": "jai-simplehttp-source",
+      "title": "jai-simplehttp (commit 2f2b134)",
+      "authors": "Smári McCarthy",
+      "year": 2025,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/smari/jai-simplehttp/tar.gz/2f2b134615fe435eb6f2d0e1ba3ae3503efd7b6e",
+      "version": "2f2b134",
+      "paths": [
+        "README.md",
+        "module.jai",
+        "test.jai",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".jai"
+      ],
+      "exclude": [],
+      "license": "Apache-2.0 (LICENSE)",
+      "fields": [
+        "jai",
+        "source",
+        "networking"
+      ],
+      "status": "current",
+      "useFor": "a small single-threaded HTTP server with the bundled Socket module, routing, middleware, module parameters",
+      "note": "compiles with beta 0.2.032: yes when placed as modules/SimpleHTTP with rluba/uniform available (USE_REGEX); URL-decode tests 4/4 and the server starts."
+    },
+    {
+      "id": "jaibreak-source",
+      "title": "jaibreak, a Breakout game in Jai (commit e7e206a)",
+      "authors": "Alexey Kutepov (tsoding)",
+      "year": 2025,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/tsoding/jaibreak/tar.gz/e7e206a66ae3140c5c588feb72591c2d641b0882",
+      "version": "e7e206a",
+      "paths": [
+        "README.md",
+        "first.jai",
+        "src",
+        "modules",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".jai"
+      ],
+      "exclude": [],
+      "license": "MIT (LICENSE)",
+      "fields": [
+        "jai",
+        "source",
+        "gamedev"
+      ],
+      "status": "dated",
+      "useFor": "a small complete game with Simp and a WASM target; a build metaprogram producing debug, release and wasm workspaces; hot-reloadable params file",
+      "note": "compiles with beta 0.2.032: no as published (written for 0.2.008). Three fixes make it build: the Tagged_Union module was deleted in 0.2.025 (use 'union kind: Enum'), table_find returns success first since 0.2.018, Swap was removed in 0.2.022 (swap). Also many '<<' deprecation warnings. Good 'update old code' exercise."
+    },
+    {
+      "id": "jai-on-linux-source",
+      "title": "jai-on-linux: Linux bindings and GDB helpers (commit 56771c8)",
+      "authors": "Valentin Ignatev",
+      "year": 2025,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/valignatev/jai-on-linux/tar.gz/56771c84fd19fa306180ef96cb7a3a6f5a11a8cf",
+      "version": "56771c8",
+      "paths": [
+        "README.md",
+        "generate_bindings.jai",
+        "examples",
+        "gdb_helpers",
+        "modules",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".jai",
+        ".py"
+      ],
+      "exclude": [
+        "generated",
+        "modules/jai-xml"
+      ],
+      "license": "MIT (LICENSE; generated files: any license)",
+      "fields": [
+        "jai",
+        "source",
+        "linux"
+      ],
+      "status": "current",
+      "useFor": "Bindings_Generator use for system headers (X11, xcb, Wayland, xkb), function-pointer (_fp) bindings for optional libraries, GDB pretty printers for Jai strings and arrays",
+      "note": "compiles with beta 0.2.032 (Linux, jai-linux on powerslabs): examples/xcb_simple.jai yes; wayland_simple.jai has a repo bug (uses 'body' for the 'buffer' parameter); xcb_opengl.jai references a missing protocols/gl path."
+    },
+    {
+      "id": "focus-editor-source",
+      "title": "Focus text editor (commit 3e1f36d)",
+      "authors": "Focus contributors (focus-editor)",
+      "year": 2026,
+      "kind": "source-tree",
+      "url": "https://codeload.github.com/focus-editor/focus/tar.gz/3e1f36d2302aeaf90fe85fc0670db4526a8ee45f",
+      "version": "3e1f36d",
+      "paths": [
+        "README.md",
+        "first.jai",
+        "src",
+        "modules",
+        "LICENSE"
+      ],
+      "extensions": [
+        ".jai"
+      ],
+      "exclude": [
+        "modules/freetype-bin",
+        "modules/libxkbcommon",
+        "modules/uniform",
+        "modules/Tracy"
+      ],
+      "license": "GPL-3.0 (LICENSE) — copyleft: read for idioms, do not paste code into permissively licensed projects",
+      "fields": [
+        "jai",
+        "source",
+        "app"
+      ],
+      "status": "current",
+      "useFor": "how a large, shipped Jai program is organized: platform layers, build metaprogram with compiler-version gating (MIN_COMPILER_VERSION) and macOS bundling, text buffers, rendering, config parsing",
+      "note": "compiles with beta 0.2.032: after the one-word NewArray initialized -> initialize fix (0.2.032 rename): release build, Focus.app and .dmg in 32 s on macOS arm64. Excludes the vendored freetype/libxkbcommon binaries and the copies of uniform and Tracy bindings (indexed from their own entries)."
+    },
+    {
+      "id": "jai-community-wiki",
+      "title": "Jai Community Library wiki",
+      "authors": "Jai Community (Daniel Tan et al.)",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://github.com/Jai-Community/Jai-Community-Library/wiki",
+      "license": "none stated",
+      "fields": [
+        "jai"
+      ],
+      "status": "dated",
+      "useFor": "community overview of the language, philosophy, 'videos vs current state', module tour, and the largest list of community libraries (References page)",
+      "note": "Bulk written 2021-23; 11 of 24 complete code blocks compile on 0.2.032. Getting Started still teaches #place; Advanced uses bare 'Context' and '#overlay member;' (both errors now)."
+    },
+    {
+      "id": "jai-encyclopedia-of-examples",
+      "title": "Encyclopedia of Jai Examples",
+      "authors": "Daniel Tan (Jai Community)",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://github.com/Jai-Community/Encyclopedia-of-Jai-Examples/wiki",
+      "license": "none stated",
+      "fields": [
+        "jai"
+      ],
+      "status": "current",
+      "useFor": "idiomatic modern Jai through many worked examples (LeetCode, sorting, graphs, polymorphic data structures, operator overloading, metaprogramming, common mistakes)",
+      "note": "Written 2025-26; no stale constructs found; snippets on a page build on each other."
+    },
+    {
+      "id": "awesome-jai",
+      "title": "Awesome Jai",
+      "authors": "Jai Community",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://github.com/Jai-Community/awesome-jai",
+      "license": "none stated",
+      "fields": [
+        "jai"
+      ],
+      "status": "dated",
+      "useFor": "finding community libraries and tools by topic",
+      "note": "Many entries date from 2021-23 and are abandoned; check each repo's last commit."
+    },
+    {
+      "id": "jai-blog-forrest-aoc",
+      "title": "Learning Jai via Advent of Code",
+      "authors": "Forrest Smith",
+      "year": 2023,
+      "kind": "link",
+      "url": "https://www.forrestthewoods.com/blog/learning-jai-via-advent-of-code/",
+      "license": "all rights reserved",
+      "fields": [
+        "jai"
+      ],
+      "status": "dated",
+      "useFor": "what makes Jai different, for C++/Rust programmers: context, temporary storage, directives, reflection, compile-time code, polymorphism, iterators, distinct types",
+      "note": "Feb 2023 (beta ~0.1.05x). Relative pointers removed (0.1.059); #must/#place gone; the caller-local AST-rewrite example no longer compiles."
+    },
+    {
+      "id": "jai-blog-smari-four-years",
+      "title": "Four Years of Jai",
+      "authors": "Smári McCarthy",
+      "year": 2024,
+      "kind": "link",
+      "url": "https://smarimccarthy.is/posts/2024-12-02-four-years-of-jai/",
+      "license": "not stated",
+      "fields": [
+        "jai"
+      ],
+      "status": "current",
+      "useFor": "production experience report: build system, metaprogramming, FFI and bindings generator, type restrictions, context and allocators, grievances, what blocked a public release in 2024",
+      "note": "Dec 2024 essay; its few code lines compile on 0.2.032."
+    },
+    {
+      "id": "jai-blog-oswald-result",
+      "title": "Emulating Rust's Result and ? in Jai with Metaprogramming",
+      "authors": "James Oswald",
+      "year": 2025,
+      "kind": "link",
+      "url": "https://jamesoswald.dev/posts/jai-result/",
+      "license": "not stated",
+      "fields": [
+        "jai"
+      ],
+      "status": "dated",
+      "useFor": "a try macro with `return from the caller; polymorphic Result helpers",
+      "note": "Uses #place (removed 0.2.027); rebuild the struct with a tag + union or 'union kind: Enum'."
+    },
+    {
+      "id": "jai-blog-oswald-embed",
+      "title": "Embedding, Jai, and Joy (Jai Part 2)",
+      "authors": "James Oswald",
+      "year": 2024,
+      "kind": "link",
+      "url": "https://jamesoswald.dev/posts/jai-2/",
+      "license": "not stated",
+      "fields": [
+        "jai"
+      ],
+      "status": "current",
+      "useFor": "embedding files into the executable with #run",
+      "note": "Verified on 0.2.032."
+    },
+    {
+      "id": "jai-news-mrphil-2026",
+      "title": "Jai in 2026: The State of Jonathan Blow's Programming Language",
+      "authors": "Philip Ludington",
+      "year": 2026,
+      "kind": "link",
+      "url": "https://mrphilgames.com/blog/jai-in-2026",
+      "license": "all rights reserved",
+      "fields": [
+        "jai"
+      ],
+      "status": "current",
+      "useFor": "status and release plans as of March 2026, with links to talks and community resources",
+      "note": "News only; plans are not facts."
+    },
+    {
+      "id": "jai-talk-lambdaconf-2025",
+      "title": "Jai Demo and Design Explanation (LambdaConf 2025 keynote)",
+      "authors": "Jonathan Blow",
+      "year": 2025,
+      "kind": "link",
+      "url": "https://www.youtube.com/watch?v=IdpD5QIVOKQ",
+      "license": "all rights reserved",
+      "fields": [
+        "jai"
+      ],
+      "status": "current",
+      "useFor": "the designer's own overview of motivations, metaprogramming and tooling",
+      "note": "Video."
+    },
+    {
+      "id": "jai-talks-blow-playlist",
+      "title": "A Programming Language for Games (Jonathan Blow's demo playlist) and Inductive's index",
+      "authors": "Jonathan Blow; index by Inductive AS",
+      "year": 2020,
+      "kind": "link",
+      "url": "https://inductive.no/jai/",
+      "license": "all rights reserved",
+      "fields": [
+        "jai"
+      ],
+      "status": "superseded",
+      "useFor": "history: when and why features were introduced",
+      "note": "2014-2020 videos show removed syntax (SOA keyword, relative pointers, constructors, old casts). Never learn current syntax from them."
+    },
+    {
+      "id": "jai-primer-bsvino",
+      "title": "Jai Primer",
+      "authors": "Jorge Rodriguez (BSVino)",
+      "year": 2015,
+      "kind": "link",
+      "url": "https://github.com/BSVino/JaiPrimer/blob/master/JaiPrimer.md",
+      "license": "none stated",
+      "fields": [
+        "jai"
+      ],
+      "status": "superseded",
+      "useFor": "history of the original goals",
+      "note": "Written from 2014-15 talks before any compiler was available; describes features that never shipped or were removed."
     }
   ]
 }

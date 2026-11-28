@@ -9,6 +9,7 @@ task needs them; nothing changes how OpenCode itself works. macOS and Linux; Ope
 | Figures and diagrams | `gnuplot`, `diagrams` | gnuplot 6 for 2D/3D, interactive and animated plots and more than three dimensions, with 12 tested example scripts; D2, Graphviz, Mermaid and TikZ for diagrams, with examples. Agents render and look at the result before showing it. |
 | Machine learning | `ml-training`, `ml-data`, `ml-tuning`, `ml-qat`, `ml-deploy`, `gpu-kernels` | CUDA/ROCm environments and MLflow; data formats and loaders that keep GPUs busy (CPU-only, GPU, CPU+GPU); Leslie Smith's LR range test, 1cycle and regularization balance, batch size, optimizers (AdamW, SGD, Muon, SOAP; what fair benchmarks show), normalization, regularization, EMA/SWA, self-normalizing nets and implicit self-regularization; quantization-aware training (torchao, ModelOpt); evaluation metrics (COCO AP/AR by IoU, size and maxDets, TIDE error analysis, segmentation, tracking, calibration, ranking, generation); TensorRT 11 and Jetson deployment; Triton and CUDA/HIP kernels. |
 | Odin | `odin`, `odin-performance`, `odin-targets` | The language and compiler at expert level, core and vendor packages, C interop and testing; allocators and memory strategies, data-oriented design, SIMD and profiling; embedded (freestanding) and WebAssembly targets. The library holds the Odin core and vendor source, searchable by procedure and type. |
+| Jai | `jai`, `jai-metaprogramming`, `jai-systems`, `jai-modules` | Jai (closed beta) as written today, validated with beta 0.2.032: the language and compiler, the C, C++ and Odin habits that are wrong in Jai, how to recognize and update older Jai code, and how to probe the language to learn it; compile-time execution, polymorphism, `#insert`, macros and `for_expansion`, type info, build metaprograms and the Compiler module; the context, allocators, temporary storage, performance, profiling, threads and debugging; the bundled modules, writing modules, C interop and bindings, platforms. Tested examples for every skill, run with your installed compiler (`pixi run jai-examples`). Your installed compiler's lessons, module source and changelog are indexed on your computer only (see below). |
 | Robotics | `zenoh`, `zenoh-ros2`, `mcap`, `rerun`, `robot-serialization`, `dora`, `robot-math`, `mcu-tooling`, `mujoco`, `genesis`, `isaac-sim`, `opencv` | Zenoh pub/sub, queries, routers, security, shared memory and zenoh-pico (incl. serial); bridging Zenoh and ROS 2 (rmw_zenoh, zenoh-bridge-ros2dds); recording and reading MCAP logs; visualizing with Rerun; FlatBuffers and Protobuf messages over Zenoh and in MCAP; dora-rs dataflows; robot math (Eigen, Sophus/manif, GTSAM, Ceres, KISS-ICP, small_gicp); microcontroller tooling (probe-rs, Renode, pico-sdk, ESP-IDF) with ready-to-flash zenoh-pico firmware; simulation with MuJoCo (MJCF, MjSpec, MJX/Warp), Genesis and Isaac Sim/Isaac Lab; OpenCV for calibration, multi-view geometry, features, tracking, video and DNN. |
 | C libraries | `c-platform`, `c-networking`, `c-crypto`, `c-data`, `c-gamedev`, `c-perf` | SDL3, sokol and clay; ENet, librg and zpl; Monocypher and libsodium (incl. encrypting ENet); yyjson, xxHash, zstd and lz4; flecs, Jolt Physics, meshoptimizer, ufbx and cgltf; Tracy, mimalloc and rpmalloc. From C and from Odin, with their source in the library. |
 | Reference library | tools `library_catalog`, `library_search`, `library_read` | Ground truth from books, papers, manuals, standards and library source code, with page, section or file:line citations and each source's status (current, dated, superseded). |
@@ -33,7 +34,17 @@ Everything stays on your computer; nothing is included in the plugin, its releas
   bookmarks or headings with page ranges, gnuplot's manual split per topic and every demo indexed by what it draws.
   Search combines keywords with meaning-based ranking (the same one-time ~290 MB engine as oc-enhance; shared if
   oc-enhance already downloaded it).
-- OpenCode's read permissions apply to your folders.
+- A catalog entry can also turn a sub-folder (for example a cloned repository) into one source indexed like source
+  code: `{ "file": "the-way-to-jai", "kind": "source-tree", "paths": ["book", "examples"], "extensions": [".jai"],
+  "status": "dated" }`. Changes anywhere inside it are noticed.
+- **Jai (closed beta)**: the Jai beta may not be redistributed, so oc-knowhow ships none of it. If the compiler is
+  unpacked at `~/jai/current` (or a folder set in Settings → Know-how → Jai, or `$OC_KNOWHOW_JAI`), its `how_to`
+  lessons, module source, examples and CHANGELOG are indexed on this computer as `jai-how-to`, `jai-modules-src`,
+  `jai-examples-src` and `jai-changelog`, labelled with the installed version. The Jai skills say which version they
+  were validated with and tell agents to check the changelog when yours is newer. Openly licensed community
+  projects (The Way to Jai, Jails, rluba's modules, Smári McCarthy's modules, Focus, …) are free references like
+  the others.
+- OpenCode's read permissions apply to your folders and to the Jai folder.
 - Agents get a one-line reminder to check the library before quoting or citing anything (exact wording, numbers,
   syntax), instead of relying on memory.
 
@@ -57,6 +68,24 @@ pixi run library status            # the library from a terminal (add, remove, d
 ```
 
 Updating: `git pull && pixi run --locked install`. Settings and the library index live in `~/.local/share/oc-knowhow`.
+
+### Jai
+
+Unpack the beta so that `~/jai/current` points to it (for example `~/jai/beta-0.2.032` and
+`ln -sfn beta-0.2.032 ~/jai/current`; on macOS run the bundle's `macos_de-quarantine.sh` once, and answer the
+Gatekeeper prompt with Open Anyway). Then:
+
+```sh
+pixi run jai-examples                              # compile and run every Jai example with your compiler
+pixi run jai-examples -- --skill jai-systems       # one skill; --filter <name>, --list
+pixi run jai-examples -- --remote <ssh-host>       # on another machine with ~/jai/current (Linux x86-64)
+pixi run jails-build                               # build the Jails language server into ~/jai/tools/jails
+pixi run jails-query -- def main.jai print         # go to definition (also symbols, sig, complete, wsym, diag)
+pixi run versions                                  # pins with newer releases, and the installed Jai vs the validated one
+```
+
+OpenCode 2 does not run language servers, so Jails is used from the shell (`jails-query`); agents learn this in the
+`jai` skill. `jai -version` and `jai -help` print only to a terminal.
 
 ## Development
 

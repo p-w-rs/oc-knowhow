@@ -1,7 +1,8 @@
 // Which pinned source trees in references.json have newer upstream releases (maintainer tool):
-//   pixi run versions            table of pins vs the newest upstream tag
+//   pixi run versions            table of pins vs the newest upstream tag (commit pins: vs the default branch)
 //   pixi run versions --json     the same as JSON (for agents and scheduled checks)
-// Uses `git ls-remote --tags`, so it needs network access but no GitHub token.
+// Also reports the Jai compiler installed on this computer against the version the Jai skills were validated with.
+// Uses `git ls-remote`, so it needs network access but no GitHub token.
 import { execFile } from "node:child_process"
 import { readFile } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
@@ -45,6 +46,12 @@ export function newestLike(pinned, tags) {
   return candidates.sort(compareVersions).at(-1)
 }
 
+/** The commit the default branch points to. */
+async function headOf(repo, host = "github.com") {
+  const { stdout } = await run("git", ["ls-remote", `https://${host}/${repo}`, "HEAD"], { timeout: 60_000 })
+  return stdout.split(/\s/)[0] || undefined
+}
+
 async function tagsOf(repo, host = "github.com") {
   const { stdout } = await run("git", ["ls-remote", "--tags", "--refs", `https://${host}/${repo}`], { timeout: 60_000, maxBuffer: 64 * 1024 * 1024 })
   return stdout.split("\n").map(line => line.split("refs/tags/")[1]).filter(Boolean)
@@ -56,7 +63,15 @@ export async function checkVersions(references) {
   for (const reference of references.filter(item => item.kind === "source-tree")) {
     const pin = parsePin(reference.url)
     if (!pin) { rows.push({ id: reference.id, status: "unknown-url", pinned: reference.url }); continue }
-    if (pin.kind !== "tag") { rows.push({ id: reference.id, repo: pin.repo, pinned: pin.ref, status: pin.kind === "branch" ? "branch (follows upstream)" : "commit (check the changelog)" }); continue }
+    if (pin.kind === "branch") { rows.push({ id: reference.id, repo: pin.repo, pinned: pin.ref, status: "branch (follows upstream)" }); continue }
+    if (pin.kind === "commit") {
+      try {
+        const head = await headOf(pin.repo, pin.host)
+        const same = !!head && (head.startsWith(pin.ref) || pin.ref.startsWith(head))
+        rows.push({ id: reference.id, repo: pin.repo, pinned: pin.ref.slice(0, 12), newest: head?.slice(0, 12), status: same ? "current" : head ? "COMMITS" : "commit (check the changelog)" })
+      } catch (error) { rows.push({ id: reference.id, repo: pin.repo, pinned: pin.ref.slice(0, 12), status: `error: ${String(error.message ?? error).split("\n")[0]}` }) }
+      continue
+    }
     try {
       if (!cache.has(pin.repo)) cache.set(pin.repo, await tagsOf(pin.repo, pin.host))
       const newest = newestLike(pin.ref, cache.get(pin.repo))
@@ -66,13 +81,29 @@ export async function checkVersions(references) {
   return rows
 }
 
+/** The installed Jai compiler against the validated one, and the CHANGELOG versions in between (to review). */
+export async function checkJai() {
+  const { compareJai, detectJai, VALIDATED_JAI } = await import("../plugin/jai.ts")
+  const found = await detectJai()
+  if (!found) return { validated: VALIDATED_JAI, status: "not installed (~/jai/current)" }
+  const order = compareJai(found.version, VALIDATED_JAI)
+  let newer = []
+  if (order > 0) {
+    const text = await readFile(`${found.path}/CHANGELOG.txt`, "utf8")
+    newer = [...text.matchAll(/^Version:\s*(beta [\d.]+)[^\n]*/gm)].map(m => m[1]).filter(version => compareJai(version, VALIDATED_JAI) > 0)
+  }
+  return { validated: VALIDATED_JAI, installed: found.version, path: found.path, status: order > 0 ? "NEWER" : order < 0 ? "older" : "current", ...(newer.length && { review: newer }) }
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const { sources } = JSON.parse(await readFile(new URL("../references.json", import.meta.url), "utf8"))
   const rows = await checkVersions(sources)
-  if (process.argv.includes("--json")) console.log(JSON.stringify(rows, null, 2))
+  const jai = await checkJai().catch(error => ({ status: `error: ${error.message}` }))
+  if (process.argv.includes("--json")) console.log(JSON.stringify({ references: rows, jai }, null, 2))
   else {
-    for (const row of rows) console.log(`${row.status === "UPDATE" ? "UPDATE " : "       "}${row.id.padEnd(26)} ${String(row.pinned).padEnd(28)} ${row.newest && row.newest !== row.pinned ? `→ ${row.newest}` : row.status === "UPDATE" || row.status === "current" ? "" : row.status}`)
-    const updates = rows.filter(row => row.status === "UPDATE").length
-    console.log(`\n${updates} of ${rows.length} pinned sources have a newer release.${updates ? " Revalidate the skill that cites each one, then bump the pin in references.json." : ""}`)
+    for (const row of rows) console.log(`${(row.status === "UPDATE" || row.status === "COMMITS" ? row.status : "").padEnd(8)}${row.id.padEnd(26)} ${String(row.pinned).padEnd(28)} ${row.newest && row.newest !== row.pinned ? `→ ${row.newest}` : row.status === "UPDATE" || row.status === "current" ? "" : row.status}`)
+    const updates = rows.filter(row => row.status === "UPDATE").length, commits = rows.filter(row => row.status === "COMMITS").length
+    console.log(`\n${updates} of ${rows.length} pinned sources have a newer release${commits ? `; ${commits} commit pins are behind their default branch` : ""}.${updates || commits ? " Revalidate the skill that cites each one, then bump the pin in references.json." : ""}`)
+    console.log(`Jai: validated with ${jai.validated ?? "?"}; installed ${jai.installed ?? "-"} (${jai.status})${jai.review ? `. Review the CHANGELOG entries ${jai.review.join(", ")}, re-run pixi run jai-examples on macOS and Linux, then update VALIDATED_JAI in plugin/jai.ts and the skills.` : ""}`)
   }
 }
