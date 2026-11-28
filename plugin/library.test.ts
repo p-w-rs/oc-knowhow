@@ -314,16 +314,16 @@ test("one library per data folder per process; info without texts; no rebuild wh
   assert.equal((await statFile(indexFile)).mtimeMs, before, "no rebuild when nothing changed")
   // A new library instance (another process) reads the same index.
   assert.equal((await new Library(data, runtime).search("bootstrap resample", { mode: "keyword" })).hits[0]?.source, "notes")
-  // Leftovers of interrupted writes older than 10 minutes, and the old single-file index, are removed on the next sync.
-  const old = join(data, "library", "index.json.12345.tmp")
-  await writeFile(old, "x"); await writeFile(join(data, "library", "index.json"), "{}")
+  // Leftovers of interrupted writes older than 10 minutes are removed on the next sync.
+  const old = join(data, "library", "index-v3.json.12345.abcd.tmp")
+  await writeFile(old, "x")
   const past = new Date(Date.now() - 3600_000)
   await utimes(old, past, past)
   const fresh = join(data, "library", "index-v3.json.99999.abcd.tmp")
   await writeFile(fresh, "x")
   await library.sync([{ id: "mine", name: "Mine", sources }])
   const names = await readdir(join(data, "library"))
-  assert.ok(!names.includes("index.json.12345.tmp") && !names.includes("index.json"), names.join(", "))
+  assert.ok(!names.includes("index-v3.json.12345.abcd.tmp"), names.join(", "))
   assert.ok(names.includes("index-v3.json.99999.abcd.tmp"), "a recent temp file may belong to a running write")
 })
 
@@ -383,32 +383,4 @@ test("a catalog entry can make a sub-folder one source-tree source; edits inside
   const report = await library.sync([{ id: "mine", name: "Mine", sources: await folderSources(folder) }])
   assert.equal(report.updated, 1)
   assert.equal((await library.search("cube", { mode: "keyword" })).hits[0]?.source, "the-way-to-jai")
-})
-
-test("sources stored by an older version (one JSON file each) are converted once, without re-reading the files", async () => {
-  const data = await scratch()
-  const sources = join(data, "library", "sources")
-  await mkdir(sources, { recursive: true })
-  // The file on disk says something else than the stored sections: finding the stored text proves it was not re-read.
-  const file = join(await scratch(), "old-notes.md")
-  await writeFile(file, "# Unrelated\n\nThis text was never indexed.\n")
-  const { stat: statFile } = await import("node:fs/promises")
-  const info = await statFile(file)
-  const old = { version: 1, library: "mine", meta: { id: "old-notes", title: "Old notes", status: "current" }, kind: "file", path: file, fingerprint: `file:${info.size}:${Math.round(info.mtimeMs)}:::::v2`, indexedAt: "2026-11-01T00:00:00.000Z",
-    units: [{ id: 0, heading: ["Intro"], text: "Arenas free everything at once with a single reset call." }, { id: 1, heading: ["More"], text: "Pools hand out fixed-size blocks quickly." }] }
-  await writeFile(join(sources, "mine--old-notes.json"), JSON.stringify(old))
-  await writeFile(join(data, "library", "index.json"), "{}")
-  const library = new Library(data, async () => undefined)
-  const stored = await library.stored()
-  assert.deepEqual(stored.map(item => [item.meta.id, item.sections]), [["old-notes", 2]])
-  const { readdir } = await import("node:fs/promises")
-  assert.deepEqual((await readdir(sources)).sort(), ["mine--old-notes.jsonl"], "the old file is replaced by the new format")
-  // The same fingerprint counts as unchanged, so nothing is re-read; the index is built from the converted sections.
-  const report = await library.sync([{ id: "mine", name: "Mine", sources: [{ id: "old-notes", title: "Old notes", status: "current", kind: "file", path: file }] }])
-  assert.deepEqual([report.unchanged, report.updated, report.failed.length], [1, 0, 0])
-  const hit = (await library.search("arenas reset", { mode: "keyword" })).hits[0]!
-  assert.equal(hit.source, "old-notes")
-  const section = await library.read(`${hit.ref.split("#")[0]}#1`, { neighbors: 0 })
-  assert.match(section!.text, /Pools hand out fixed-size blocks/)
-  assert.ok(!(await readdir(join(data, "library"))).includes("index.json"), "the old index file is removed")
 })

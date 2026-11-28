@@ -533,7 +533,6 @@ export class Library {
   progress?: Progress
   #running?: Promise<SyncReport>
   #runningKey?: string
-  #migrating?: Promise<void>
   #refs = 0
   #sharedKey?: string
 
@@ -576,7 +575,6 @@ export class Library {
   }
 
   #file = (key: string) => join(this.sourcesDir, `${key}.jsonl`)
-  #legacyFile = (key: string) => join(this.sourcesDir, `${key}.json`)
   #infoFile = (key: string) => join(this.infoDir, `${key}.json`)
   static key = (library: string, source: string) => `${library}--${source}`
 
@@ -584,12 +582,7 @@ export class Library {
   async stored(): Promise<StoredInfo[]> {
     await mkdir(this.sourcesDir, { recursive: true })
     await mkdir(this.infoDir, { recursive: true })
-    let names = await readdir(this.sourcesDir)
-    // Sources stored by older versions (one JSON file each) move to the line-per-section format, once.
-    if (names.some(name => name.endsWith(".json"))) {
-      await (this.#migrating ??= this.#migrateAll(names).finally(() => { this.#migrating = undefined }))
-      names = await readdir(this.sourcesDir)
-    }
+    const names = await readdir(this.sourcesDir)
     const result: StoredInfo[] = []
     const seen = new Set<string>()
     for (const name of names) {
@@ -602,21 +595,6 @@ export class Library {
     }
     for (const key of [...this.#info.keys()]) if (!seen.has(key)) this.#info.delete(key)
     return result
-  }
-
-  async #migrateAll(names: readonly string[]) {
-    const present = new Set(names)
-    for (const name of names) {
-      if (!name.endsWith(".json")) continue
-      const key = name.slice(0, -5)
-      const legacy = await stat(this.#legacyFile(key)).catch(() => undefined)
-      const current = present.has(`${key}.jsonl`) ? await stat(this.#file(key)).catch(() => undefined) : undefined
-      // An older version may still have been writing during an update: the newer of the two files wins.
-      if (!legacy) continue
-      if (current && current.mtimeMs >= legacy.mtimeMs) { await unlink(this.#legacyFile(key)).catch(() => {}); continue }
-      try { await this.#save(key, JSON.parse(await readFile(this.#legacyFile(key), "utf8")) as Stored) }
-      catch { await unlink(this.#legacyFile(key)).catch(() => {}) }
-    }
   }
 
   /** A source's description and section offsets: cached, else from its sidecar, else from the .jsonl itself. */
@@ -757,16 +735,15 @@ export class Library {
     return report
   }
 
-  /** Leftovers of interrupted writes and of older index formats (the first one was a single file of up to ~80 MB). */
+  /** Leftovers of interrupted writes (another process may still be writing a recent one). */
   async #cleanTemporary() {
     const now = Date.now()
     for (const dir of [this.root, this.sourcesDir, this.infoDir]) {
       for (const name of await readdir(dir).catch(() => [] as string[])) {
-        const old = dir === this.root && (name === "index.json" || name.startsWith("index-v2."))
-        if (!name.endsWith(".tmp") && !old) continue
+        if (!name.endsWith(".tmp")) continue
         const path = join(dir, name)
         const info = await stat(path).catch(() => undefined)
-        if (info && (old || now - info.mtimeMs > 10 * 60_000)) await unlink(path).catch(() => {})
+        if (info && now - info.mtimeMs > 10 * 60_000) await unlink(path).catch(() => {})
       }
     }
   }
@@ -787,7 +764,6 @@ export class Library {
     const entry: Entry = { item, stamp, offsets }
     await this.#writeInfo(key, entry)
     this.#info.set(key, entry)
-    await unlink(this.#legacyFile(key)).catch(() => {})
   }
 
   /** What identifies a source's content: file size and time, or for deep trees every kept file's. */

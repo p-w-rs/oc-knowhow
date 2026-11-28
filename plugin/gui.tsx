@@ -99,10 +99,10 @@ function KnowhowView(props: { ctx: Context }) {
             <Show when={current().search.shared}><span style={muted}>Meaning-based search: {current().search.shared}.</span></Show>
           </Show>
         </div>
-        <Show when={current().problems?.length}>
+        <Show when={current().problems.length}>
           <div style={card}>
             <span><b>Recent problems</b> <span style={muted}>(also in {current().dataDirectory}/warnings.log)</span></span>
-            <For each={(current().problems ?? []).slice(-5)}>{line => <span style={{ ...muted, "font-family": "monospace", "word-break": "break-word" }}>{line}</span>}</For>
+            <For each={current().problems.slice(-5)}>{line => <span style={{ ...muted, "font-family": "monospace", "word-break": "break-word" }}>{line}</span>}</For>
           </div>
         </Show>
         <span style={muted}>oc-knowhow {current().version} · data in {current().dataDirectory}</span>

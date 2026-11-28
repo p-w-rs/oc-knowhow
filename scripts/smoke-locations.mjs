@@ -12,10 +12,10 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { GROUPS } from "../plugin/settings.ts"
 
-const OPENCODE_VERSION = process.env.OC_KNOWHOW_SMOKE_OPENCODE || "2.2.6"
+const OPENCODE_VERSION = process.env.OC_KNOWHOW_SMOKE_OPENCODE || "2.4.2"
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const cliPackage = `@opencode/cli-${process.platform}-${process.arch}`
-const prefix = path.join(root, ".local", OPENCODE_VERSION === "2.2.6" ? "host" : `host-${OPENCODE_VERSION}`)
+const prefix = path.join(root, ".local", `host-${OPENCODE_VERSION}`)
 const binary = path.join(prefix, "node_modules", cliPackage, "bin", "opencode")
 try { await access(binary) } catch {
   console.log(`Installing ${cliPackage}@${OPENCODE_VERSION} into ${path.relative(root, prefix)} ...`)

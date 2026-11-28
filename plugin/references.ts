@@ -59,7 +59,7 @@ async function viaFetch(url: string, partial: string, userAgent: string, signal?
 
 /** Temporary names are unique per process and attempt: two downloads (another window, the terminal) never share one. */
 const unique = () => `${process.pid}-${randomBytes(4).toString("hex")}`
-const TEMPORARY = /\.\d+-[0-9a-f]{8}\.(part|tar\.gz|staging|old)$|\.(part|staging)$|\.tar\.gz$/
+const TEMPORARY = /\.\d+-[0-9a-f]{8}\.(part|tar\.gz|staging|old|tmp)$/
 
 /** Downloads with fetch; if the server refuses or answers with a web page, retries with the system's curl. */
 async function fetchTo(url: string, path: string, kind: Reference["kind"], sha256?: string, signal?: AbortSignal): Promise<void> {

@@ -1,7 +1,7 @@
 # oc-knowhow
 
 Expert know-how for OpenCode agents, plus a reference library they can search and cite. Skills load only when a
-task needs them; nothing changes how OpenCode itself works. macOS and Linux; OpenCode 2.2.6+ and Pixi.
+task needs them; nothing changes how OpenCode itself works. macOS and Linux; the current OpenCode (2.4.2) and Pixi.
 
 | Area | Skills | What agents get |
 |---|---|---|
@@ -54,7 +54,7 @@ Everything stays on your computer; nothing is included in the plugin, its releas
 
 ## Install
 
-Requires [OpenCode](https://opencode.ai) 2.2.6+ (CLI or Desktop) and [Pixi](https://pixi.sh); macOS or Linux.
+Requires the current [OpenCode](https://opencode.ai) (2.4.2; CLI or Desktop) and [Pixi](https://pixi.sh); macOS or Linux.
 
 ```sh
 git clone https://github.com/p-w-rs/oc-knowhow.git && cd oc-knowhow
@@ -98,7 +98,7 @@ pixi run --locked test             # type check, unit tests, installer test
 pixi run --locked examples         # render every gnuplot and diagram example into .local/examples (then look at them)
 pixi run --locked smoke-host       # end to end on the real OpenCode CLI with a scripted model
 pixi run --locked smoke-locations  # a real OpenCode server: the plugin in several project locations and across live updates
-                                   # (OC_KNOWHOW_SMOKE_OPENCODE=<version> picks another OpenCode version)
+                                   # (OC_KNOWHOW_SMOKE_OPENCODE=<version> tries a newer OpenCode before the pin moves)
 pixi run --locked setup-search     # meaning-based search engine into .local/search (enables its tests)
 ```
 

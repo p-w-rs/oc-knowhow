@@ -11,15 +11,15 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { pdf } from "../plugin/testdocs.ts"
 
-const OPENCODE_VERSION = "2.2.6"
+const OPENCODE_VERSION = "2.4.2"
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const cliPackage = `@opencode/cli-${process.platform}-${process.arch}`
-const binary = path.join(root, ".local", "host", "node_modules", cliPackage, "bin", "opencode")
+const binary = path.join(root, ".local", `host-${OPENCODE_VERSION}`, "node_modules", cliPackage, "bin", "opencode")
 export async function ensureCli() {
   try { await access(binary); return binary } catch {}
-  console.log(`Installing ${cliPackage}@${OPENCODE_VERSION} into .local/host ...`)
-  await mkdir(path.join(root, ".local", "host"), { recursive: true })
-  const result = spawnSync("npm", ["install", "--no-save", "--no-package-lock", "--ignore-scripts", "--prefix", path.join(root, ".local", "host"), "--cache", path.join(root, ".local", "npm-cache"), `${cliPackage}@${OPENCODE_VERSION}`], { stdio: "inherit" })
+  console.log(`Installing ${cliPackage}@${OPENCODE_VERSION} into .local/host-${OPENCODE_VERSION} ...`)
+  await mkdir(path.join(root, ".local", `host-${OPENCODE_VERSION}`), { recursive: true })
+  const result = spawnSync("npm", ["install", "--no-save", "--no-package-lock", "--ignore-scripts", "--prefix", path.join(root, ".local", `host-${OPENCODE_VERSION}`), "--cache", path.join(root, ".local", "npm-cache"), `${cliPackage}@${OPENCODE_VERSION}`], { stdio: "inherit" })
   if (result.status !== 0) throw new Error(`Could not install ${cliPackage}@${OPENCODE_VERSION}`)
   return binary
 }
