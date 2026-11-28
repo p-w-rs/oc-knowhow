@@ -153,16 +153,32 @@ since 0.2.031, a version with a user-data pointer.
 
 ## Data layout
 
+Measured details and the benchmark suite: reference/caches.md (examples 46–49, `examples/jai/jai-systems/_bench/`).
+
 - Fields are laid out in declaration order with natural alignment: `{u8, u64, u8}` is 24 bytes, `{u64, u8, u8}` 16.
-- `#align N` on a struct member (`value: int #align 64;` makes the struct 64 bytes: per-thread counters on separate
-  cache lines) or on a variable (`scratch: [256] u8 #align 64;`, global or local).
+  There is no `align_of`; `type_info(T).alignment` (0.2.030) reads -1 in 0.2.032 once T appears in a procedure
+  signature or a global's type. Probe instead: `Align_Probe :: struct (T: Type) { first: u8; value: T; }`, then
+  `type_info(Align_Probe(T)).members[1].offset_in_bytes` (example 49).
+- `#align N` on a member (`value: s64 #align 128;` makes the struct 128 bytes) or a variable (global or local; verified
+  up to 4096 on globals). **Heap allocations ignore it**: `New(T)` passes only `size_of(T)` and the default heap aligns
+  to 16 (macOS placed a `NewArray` of 128-byte structs 48 or 80 bytes past a 128 boundary). Use `NewArray(n, T,
+  alignment = N)` and free its second return value. Flat_Pool/Pool: set the `alignment` field before the first
+  allocation; temp gives 8.
+- Cache lines are 64 bytes on the Intel machines, 128 on the M2 Max: pad data written by different threads to 128
+  (64-byte padding cost 1.7× with atomics on the M2 Max, 1.0× on Intel).
 - **`#no_padding` (0.2.032) only removes trailing padding.** For `{u8, u64, u8} #no_padding` the members stay at
-  offsets 0, 8, 16 (type_info and real memory agree), `size_of` becomes 17 and arrays use a stride of 17, so element 1's
-  u64 sits at byte 25: misaligned. It is not a packed-struct feature; use it only on structs that are already packed
-  (the bundle uses it for file headers). Example 30 prints the offsets.
-- Struct-of-arrays: write it by hand (one array per hot field) or generate it with metaprogramming
-  (`modules/Soa.jai` is a small experimental generator, see jai-metaprogramming). Keep hot loops over contiguous
-  arrays; how_to/200 explains why pointer-chasing structures are slow on modern CPUs.
+  offsets 0, 8, 16, `size_of` becomes 17 and arrays use a stride of 17, so element 1's u64 sits at byte 25 (example 30).
+  Arrays of it read as fast as the padded struct in L1 and faster out of cache (fewer bytes); reordering the members
+  (16 bytes, aligned) was as fast or faster on the Mac and the laptop. Prefer reordering.
+- Misalignment: free in streaming loops (offset 4 = aligned on all three machines); in dependent load chains, crossing
+  a 64-byte line cost 2.5–2.7× on Intel, crossing a 16 KiB page 10× on the M2 Max. Never misalign atomics (split locks
+  on x86, alignment faults on arm64).
+- Locality: a list from an arena, or allocated in a row, walked 3–9× slower than an array sum at 128 MiB; after churn
+  the same list was another 20–90× slower, close to random order. Iterating the storage instead of the links recovered
+  it. Index-linked lists in one array beat pointer lists on Intel.
+- Struct-of-arrays / hot-cold split: by hand (example 47) or generated (`modules/Soa.jai` is experimental, see
+  jai-metaprogramming). Reading 4 bytes of a 64-byte struct, SoA was 9–28× faster than AoS in DRAM; a loop that uses
+  most fields can be slower in SoA (2.1× on the Mac).
 
 ## SIMD, #asm, CPU features
 
@@ -171,6 +187,11 @@ since 0.2.031, a version with a user-data pointer.
   scalar loops: no guaranteed speedup (LLVM may vectorize them under `-o`). Verified it computes correctly.
 - Real vector code today: write loops that LLVM vectorizes under `-o` (VERY_OPTIMIZED enables the loop and SLP
   vectorizers; check with `-output_ir`, which writes `.ll` files into `.build/`), or x64 `#asm` with feature blocks.
+- **0.2.032: `-o` vectorized only read-only reductions** (integer sums: NEON `add.2d`, SSE2 `paddq`; float sums stay in
+  order). Every loop that stores through an array view or pointer stayed scalar on arm64 and x64 (`x[i] += v[i]*k`,
+  `dst[i] = src[i]*3`, a constant fill): the IR builds element addresses with ptrtoint/inttoptr and marks accesses
+  `align 1`. Workaround that worked: four floats per step through a 16-byte struct copy (`F4 :: struct {a, b, c, d:
+  float32;}`; `p := xs[i]; p.a += ...; xs[i] = p;`) gave `fmul.4s`/`mulps`, 1.2–5.4× (reference/caches.md).
 - `#asm` (how_to/900, x86-64 only): registers are named and allocated by the compiler (`mov result:, 10;`),
   register classes `gpr`, `vec`, `omr`, `str`; pinning `x === a`; sizes on the mnemonic (`mov.32`, `popcnt?T`);
   memory operands `[base + index*scale + disp]`; per-block features `#asm AVX2 { }`; `#asm,no_barrier` (0.2.031) drops
@@ -207,6 +228,17 @@ since 0.2.031, a version with a user-data pointer.
 - `[..]` growth doubles (min 8): reserve when the size is known (`array_reserve`); example 34 counts 1 allocation with
   a reserve vs 8 without for 1000 adds.
 - Bump allocators (temp, Flat_Pool, Pool, arenas) waste the old buffers of growing arrays (RESIZE copies).
-- Allocator choice for multithreaded allocation-heavy code: the x64 default allocator has no thread caches (the module
-  comment estimates ~25% slower than full rpmalloc under threads); `modules/rpmalloc` has them. On macOS arm64 the
-  default is the system malloc (see c-perf for macOS malloc scaling numbers). Per-thread arenas avoid the question.
+- Measured, one thread, ns per 32-byte allocation (free; churn step = free a random block + allocate), Mac / powerslabs
+  (256-byte, mixed sizes and the laptop: reference/caches.md "Allocator speed"): `temp` 3.1 / 2.8 and Flat_Pool
+  4.7 / 4.1 (freeing = one reset, ~0); rpmalloc module with release flags 4.3 / 3.3 (free 4.3 / 2.4; churn 13.9 / 9.9);
+  default heap 12.7 / 19.4 (free 13.0 / 9.4; churn 39.9 / 15.6); a fixed-size free list called directly 1.1 / 0.9
+  (through an Allocator_Proc 2.3 / 1.5). The x64 default heap took 72 ns per 256-byte allocation in a batch of
+  100,000 (it unmaps emptied spans) vs 6.7 for rpmalloc.
+- Threads (4 threads allocating and freeing 32-byte blocks): the x64 default heap, one heap behind a spin lock, got
+  **34× slower per call** (powerslabs and ubuntu-laptop; far worse than the module comment's ~25% estimate for this
+  pattern); macOS malloc 1.5×; the rpmalloc module 1.0–1.3×, a Flat_Pool per thread 1.0–1.2×. With rpmalloc every POSIX
+  thread must call `rpmalloc_allocator_proc(.THREAD_START, 0, 0, null, null)` itself (its heap is an `#add_context`
+  field; only Windows threads send THREAD_START); import it with `ENABLE_STATISTICS`, `ENABLE_ASSERTS` and
+  `ENABLE_VALIDATE_ARGS` false for release builds.
+- Locality is a cost too: pools and heaps reuse freed blocks newest-first, so a list built after churn walked 20–90×
+  slower than one built in order (reference/caches.md "Lists, arrays and allocators (locality)").

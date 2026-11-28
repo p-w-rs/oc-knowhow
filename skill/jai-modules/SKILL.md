@@ -111,7 +111,7 @@ import even if you never call it.
 
 | Need | Use (0.2.032) | Ex. |
 |---|---|---|
-| format | `print("% %\n", a, b)`; `%2` positional; `\%` literal; `FormatInt.{value=x, base=16, minimum_digits=4}`, `FormatFloat.{value=f, trailing_width=2}` | 15 |
+| format | `print("% %\n", a, b)`; `%2` positional; `\%` literal; `FormatInt.{value=x, base=16, minimum_digits=4}`, fixed decimals `FormatFloat.{value=f, trailing_width=2, zero_removal=.NO}` (without `.NO` trailing zeros become spaces: 2.5 → `2.5 `) | 15 |
 | build strings | `b: String_Builder; print_to_builder(*b, ...); s := builder_to_string(*b);` `sprint` (heap) / `tprint` (temp) | 16 |
 | time | `current_time_monotonic()`, `to_milliseconds(d)`, `to_calendar(t)`, `calendar_to_iso_string`, `seconds_since_init()` | 16 |
 | arrays | `array_add`, `array_find -> found, index`, `array_ordered_remove_by_index`, `array_view`, `remove it` in `for`, `NewArray(n, T)` | 17 |

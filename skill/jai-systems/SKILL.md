@@ -1,6 +1,6 @@
 ---
 name: jai-systems
-description: Jai systems programming (beta 0.2.032) — the implicit context (#Context, push_context, the ,, call-site override, push_allocator, #add_context, #c_call/#no_context callbacks, context in threads), allocators (Allocator_Proc modes, alloc/free/New/NewArray, [..] remembering its allocator, Default_Allocator, Flat_Pool, Pool, rpmalloc heaps, Bucket_Array, writing an arena), the memory debugger and leak reports, Overwriting/Unmapping allocators, temporary storage (temp, tprint, reset_temporary_storage, auto_release_temp, marks, overflow pages), build modes with measured costs (debug, -od, -o, x64 vs LLVM, bounds/cast/null/overflow checks, #no_abc, stack traces, inline), data layout (#align, #no_padding pitfall), #asm (x64 only), SIMD, sort and hash costs, timing, profiling (Iprof, Performance_Report, sample/xctrace, callgrind), concurrency (Thread, Thread_Group, Mutex, Semaphore, atomics) and debugging (crash messages, assert handlers, stack traces, lldb/gdb, -debugger), plus updating older memory and context code. Load before writing or reviewing Jai code that manages memory, threads or performance, before debugging or profiling a Jai program, or when porting older Jai code.
+description: Jai systems programming (beta 0.2.032) — the implicit context (#Context, push_context, the ,, call-site override, push_allocator, #add_context, #c_call/#no_context callbacks, context in threads), memory by lifetime × size (four situations: exact blocks, arenas, slot pools with generational handles, heaps), allocators (Allocator_Proc modes, New/NewArray, [..] remembering its allocator, Default_Allocator, Flat_Pool, Pool, rpmalloc heaps and the destroy_heap trap, Bucket_Array, writing an arena, pool or size-class heap), the memory debugger, temporary storage (temp, tprint, reset_temporary_storage, auto_release_temp, marks), build modes with measured costs (debug, -od, -o, x64 vs LLVM, checks, #no_abc, inline), caches measured on three machines (cache lines, coherence and false sharing, 128-byte padding, locality of lists and pools, AoS/SoA, alignment and #no_padding, allocator speed, vectorization limits), #asm (x64 only), profiling (Iprof, sample/xctrace, callgrind), concurrency (Thread, Thread_Group, Mutex, Semaphore, atomics) and debugging (crash messages, assert handlers, stack traces, lldb/gdb, -debugger), plus updating older memory and context code. Load before writing or reviewing Jai code that manages memory, threads or performance, before debugging or profiling a Jai program, or when porting older Jai code.
 ---
 
 # Jai systems: context, memory, performance, threads, debugging
@@ -9,7 +9,7 @@ description: Jai systems programming (beta 0.2.032) — the implicit context (#C
 
 - Validated with **Jai beta 0.2.032** (26 Nov 2026) on macOS arm64 (M2 Max; LLVM backend only), Linux x86-64
   **powerslabs** (Core Ultra 9 285K, hardened Arch kernel) and **ubuntu-laptop** (Core Ultra 7 265H, Ubuntu 26.10).
-  Everything below was compiled and run there; the 40 examples in `oc-knowhow/examples/jai/jai-systems/` pass on all
+  Everything below was compiled and run there; the 49 examples in `oc-knowhow/examples/jai/jai-systems/` pass on all
   three (one is macOS-only by design). Jai is a closed beta that changes monthly: verify, don't trust.
 - Your version: `script -q /dev/null ~/jai/current/bin/jai-macos -version` (Linux:
   `script -qc "~/jai/current/bin/jai-linux -version" /dev/null`; it prints only to a terminal). Then read
@@ -91,7 +91,7 @@ Allocator      :: struct { proc: Allocator_Proc; data: *void; }
   `New(T)`, `New(T, initialize=false)`, `NewArray(count, T, initialize=true, alignment=-1) -> (array, unaligned_base)`
   (with an alignment, free `unaligned_base`), `copy_string`, `alloc_string`, `sprint` (heap) vs `tprint` (temp),
   `array_reserve`, `array_free`, `array_reset` (frees), `array_reset_keeping_memory`, `create_heap(a)`,
-  `destroy_heap(h)`, `get_capabilities(a) -> (caps, name)` (examples 08, 10).
+  `destroy_heap(h)` (parks the heap, see below), `get_capabilities(a) -> (caps, name)` (examples 08, 10).
 - **No allocator parameters** (removed in 0.1.080): pick the allocator for one call with `,,` —
   `alloc(64,, temp)`, `New(Node,, a)`, `copy_string(s,, allocator = a)`, `free(p,, a)`, `builder_to_string(*b,, temp)`.
   Old `alloc(64, a)` / `copy_string(s, a)` → "Too many arguments: Wanted 1, got 2."; `New(T, allocator = a)` →
@@ -103,7 +103,8 @@ Allocator      :: struct { proc: Allocator_Proc; data: *void; }
 - `[..] T` (40 bytes: count, data, allocated, allocator) **remembers `context.allocator` at its first growth** and
   keeps using it, even outside the scope that pushed it; `array_free`/`array_reset` use it. `[] T` and `string`
   (16 bytes) carry no allocator: free them with the one that made them (`free(s,, a)`). Hash_Table, String_Builder,
-  Bucket_Array, Pool remember theirs too (`remember_allocators`) (example 08).
+  Pool and Thread_Group remember theirs too (example 08). **`Bucket_Array` does not**: it reads its `allocator` field
+  if set, else whatever `context.allocator` is at each add and at `bucket_array_reset`; set `ba.allocator` first.
 - Syntax trap met twice while writing these examples: `if p (cast(*string) p).* = x;` parses the parentheses as part
   of the condition ("Expected a statement before this semicolon"). Write `if p { (cast(*string) p).* = x; }`.
 
@@ -113,18 +114,31 @@ Allocator      :: struct { proc: Allocator_Proc; data: *void; }
 | `temp` | scratch until a reset | section below |
 | `Flat_Pool` + `flat_pool_allocator_proc` | arena for one lifetime | reserves 256 MiB of address space on first use; `get`, `reset(*p, overwrite_memory=false)`, `fini`; no setup; 8-byte `alignment` field |
 | `Pool` + `pool_allocator_proc` | older arena | 64 KiB blocks; call `set_allocators(*pool)` **before** pushing it; `reset` keeps blocks, `release` frees them |
-| `rpmalloc` module | threaded heap, real heaps | `rpmalloc_allocator_proc(.STARTUP, 0, 0, null, null)` once; `create_heap`/`destroy_heap` per level/request (example 13) |
-| `Bucket_Array(T, N)` | stable addresses | `bucket_array_add -> (locator, pointer)`, `bucket_array_remove`, `for` with `remove` |
+| `rpmalloc` module | threaded heap, real heaps | `rpmalloc_allocator_proc(.STARTUP, 0, 0, null, null)` once; per level/request `create_heap`, then **`heap_free_all` + `destroy_heap`** (destroy alone frees nothing, example 13) |
+| `Bucket_Array(T, N)` | stable addresses, slot reuse | `bucket_array_add -> (locator, pointer)`, `bucket_array_remove`, `for` with `remove`; no generations (a stale locator finds the new occupant); set `ba.allocator` |
 | `Overwriting_Allocator`, `Unmapping_Allocator` | debugging | below |
 
 - Your own allocator: example 09 is a complete tested fixed-buffer arena (align the **address**, null when full,
   RESIZE extends the last block in place, FREE ignored, IS_THIS_YOURS and CAPS answered). In any bump allocator a
   growing `[..]` abandons its old buffers (500 strings: 20 KiB instead of 4 KiB in example 12): `array_reserve` first.
-- Choose by lifetime: scratch for a frame/function → `temp`; things that die together (level, request, file) → an
-  arena / Flat_Pool / rpmalloc heap pushed around the code, freed in one call; long-lived and owned by one system →
-  its own heap, or the default heap with `defer free`; individually freed with unclear ownership → default heap,
-  and treat it as a design smell (how_to/200). Library code that never frees works unchanged under a pushed arena.
-- deep dive: reference/allocators.md
+- **Choose per kind of data with two questions: how long does it live, and how much of it is there?** (examples 41–45)
+
+| | size known | size unknown |
+|---|---|---|
+| **lifetime known** | (1) `[N] T`, or one exact block (count first; carve several arrays out of one `alloc`); free once or never (41) | (2) an arena reset at the end: `temp` + `reset_temporary_storage()`, `Flat_Pool` + `reset`, a chunk arena (42) |
+| **lifetime unknown** | (3) a slot pool: free list + generational handles, stale handles rejected; none ships (43) | (4) the default heap or rpmalloc with `free`; keep it rare (how_to/200: unclear ownership hints at a design flaw) (44) |
+
+  Example 45 is a game loop that uses all four and checks that every allocator ends at zero. Data owned by value
+  inside its owner beats all four. Library code that never frees works unchanged under a pushed arena.
+- Arena and pool addresses stay put until the reset; elements stored inside a growing `[..]` move (a pointer taken
+  earlier reads a stale copy, example 42): allocate the objects from the arena and keep a `[..]` of pointers as the index.
+- **`destroy_heap` frees nothing (0.2.032)**: the rpmalloc module and the x64 default allocator only park the heap,
+  and the next `create_heap` hands it back with the old blocks still allocated (30 rounds: maxrss 12 → 278 MB); the
+  memory debugger reports no leak. First `heap_free_all(xx h.data)` (rpmalloc module), then `destroy_heap(h)`.
+- The memory debugger ignores only `temp`, `Flat_Pool` and `Pool`: a custom arena reset by hand gets false "still
+  live" errors. Answer DESTROY_HEAP with a reset and reset through `destroy_heap(arena)` (reference/memory-strategies.md).
+- deep dive: reference/memory-strategies.md (the four situations, writing a pool or heap, which allocator makes
+  which data structure fast), reference/allocators.md (protocol, shipped allocators), reference/caches.md (measured)
 
 ## Finding memory bugs
 
@@ -206,9 +220,17 @@ Allocator      :: struct { proc: Allocator_Proc; data: *void; }
   `cast,trunc(u8) x` skip the cast check (examples 29, 37). `inline`/`no_inline` on a declaration
   (`f :: inline (x: int) -> int {...}`) or a call (`inline f(x)`, `no_inline f(x)`) (example 34).
 - Layout: declaration order, natural alignment: order large-to-small (`{u8,u64,u8}` = 24 bytes, reordered 16).
-  `#align 64` on a member or local variable (false sharing). **`#no_padding` only drops trailing padding**: members
-  keep offsets 0/8/16, size becomes 17, and array elements after the first are misaligned (example 30). Use it only for
-  structs that are already packed. SOA: write it by hand or see jai-metaprogramming (modules/Soa.jai is experimental).
+  **`#no_padding` only drops trailing padding**: members keep offsets 0/8/16, size becomes 17, and array elements
+  after the first are misaligned (example 30); not a packed format. No `align_of`, and `type_info(T).alignment` reads
+  -1 once T appears in a procedure signature or a global's type (0.2.032): probe with `struct { first: u8; value: T; }`
+  (example 49). `#align N` works on members, globals and locals but **not on the heap** (`New` gets the allocator's 16
+  bytes): use `NewArray(n, T, alignment = N)` and free its second return value (example 48). Misaligned loads cost
+  nothing in streaming loops; in dependent chains, crossing a 64-byte line cost 2.5–2.7× (Intel) and crossing a 16 KiB
+  page 10× (M2 Max). Atomics must be aligned. Hot loops: contiguous arrays over pointer graphs; hot/cold split or SoA
+  for loops that read few fields (by hand, example 47; generators: jai-metaprogramming). Tables: reference/caches.md.
+- **`-o` does not vectorize loops that store through an array view or pointer** (0.2.032, arm64 and x64: the IR builds
+  addresses with integer casts, every access `align 1`); read-only integer reductions do. Four floats per step as a
+  16-byte struct copy produced NEON/SSE code, 1.2–5.4× faster (reference/caches.md). Check the disassembly.
 - `#asm` is **x86-64 only**; on arm64 an `#asm` block fails ("The target of this workspace does not support x64
   asm", example 32). Guard with `#if CPU == .X64` and add a fallback (example 31). **Silent pitfall on every platform:
   an asm operand whose address is taken anywhere in the procedure (passing it to `print` does that) gets only "Info:
@@ -217,7 +239,8 @@ Allocator      :: struct { proc: Allocator_Proc; data: *void; }
   nothing. Copy the result into another variable before printing (example 33). Machine_X64 (x64 only):
   `get_cpu_info()`, `check_feature(info.feature_leaves, .AVX2)`, `prefetch`, `rdtsc`, `pause`, fences; `#asm AVX2 {}`
   for per-block features. `modules/SIMD.jai` is a scalar **prototype** of a SIMD API (`SIMD_Array(N, T)` with
-  operators, `horizontal_sum`): no speedup. Real SIMD: x64 `#asm`, or LLVM's vectorizers under `-o`.
+  operators, `horizontal_sum`): no speedup. Real SIMD: x64 `#asm`, or LLVM's vectorizers under `-o` (read-only
+  reductions only in 0.2.032; see above).
 - Bit_Operations: `popcount`, `bit_scan_forward/reverse` (1-based, 0 for 0), `byte_swap`: x64 asm, loops elsewhere.
   Measured with -o (64 MiB, 1M u32; Mac / powerslabs): `Hash.fnv1a_hash` 0.8 / 1.4 GB/s; `xxHash.native_XXH64` 13.8 /
   12.5 GB/s; `native_XXH32` 4.7 / 7.7 GB/s; `meow_hash` 26.5 GB/s (x64 only); `Sort.quick_sort` 103 / 82 ms;
@@ -261,6 +284,18 @@ Allocator      :: struct { proc: Allocator_Proc; data: *void; }
 - `Thread_Group`: `init(*g, n, proc, enable_work_stealing = false)`, **`g.logging = false`** (default true: logs every
   work item), `start`, `add_work(*g, *item)`, `get_completed_work(*g)` (array in temp storage), `shutdown(*g)`. Proc:
   `(group, thread, work: *void) -> Thread_Continue_Status`. Work items are your memory (example 25).
+- **Cache coherence and false sharing**: a core must own a whole cache line to write it (64 B on Intel, **128 B on
+  Apple M-series**), so threads writing different variables in one line take turns owning it. Counters of different
+  threads in one line made `atomic_add` 4–20× slower (2–8 threads), as slow as one shared counter; 64-byte padding was
+  enough on the Intel machines but still 1.7× slower on the M2 Max. Pad per-thread data to **128 bytes** everywhere
+  (`value: s64 #align 128;`, heap arrays with `NewArray(n, T, alignment = 128)`), or better, count in a local and store
+  once (10× faster than incrementing in place even when padded). Thread_Group pads its workers with the Thread module's
+  `CACHE_LINE_SIZE` (default 64): on Apple silicon `#import "Thread"()(CACHE_LINE_SIZE=128);` (second parameter list;
+  `#import "Thread"(CACHE_LINE_SIZE=128)` is an error) (example 48, reference/caches.md).
+- **Threaded allocation on x64**: the default heap is one heap behind a spin lock; 4 threads allocating and freeing
+  made each call 34× slower (macOS malloc: 1.5×). Use the rpmalloc module (each thread calls
+  `rpmalloc_allocator_proc(.THREAD_START, 0, 0, null, null)` first: only the Windows thread entry sends it) or a
+  Flat_Pool/temp per thread: both 1.0–1.3× (reference/caches.md "Allocator speed").
 - Atomics: intrinsics `compare_and_swap(*x, old, new) -> (ok, old_value)`, `atomic_exchange`, `atomic_load`,
   `atomic_store` (≤ 8 bytes; since 0.2.030, AcqRel on ARM64); `#import "Atomics"` for `atomic_add` (returns the old
   value), `atomic_increment`, `atomic_decrement` (true at zero), `atomic_and/or/xor` (example 26).
@@ -333,6 +368,16 @@ on_event :: (value: s32, user: *void) -> s32 #c_call {
 
 // #add_context fields into every new thread (example 24)
 thread_init_handler = (t: *Thread) { t.starting_context.request_limit = context.request_limit; };
+
+// Objects with unknown lifetimes and one size: slot pool + generational handles (example 43)
+h := pool_add(*pool, Entity.{name = "orc"});
+pool_remove(*pool, h);
+assert(pool_get(*pool, h) == null);           // the stale handle is rejected, even after the slot is reused
+
+// Per-thread counters on their own cache lines, on every platform (example 48)
+Counter :: struct { value: s64 #align 128; }  // 128: Apple M-series lines; also fine on Intel's 64
+counters, base := NewArray(thread_count, Counter, alignment = 128);   // the heap ignores #align
+defer free(base);
 ```
 
 ## Pitfalls checklist (all observed in 0.2.032)
@@ -354,6 +399,14 @@ thread_init_handler = (t: *Thread) { t.starting_context.request_limit = context.
   `enable_register_allocation` (x64 backend) crashes; `#exists(context.field)` is unreliable for #add_context fields.
 - A build.jai workspace ignores `-quiet` (set `text_output_flags = 0`) and must call
   `set_build_options_dc(.{do_output = false})` (jai-metaprogramming).
+- Memory: `destroy_heap` frees nothing (call `heap_free_all` first) and the memory debugger hides it; `Bucket_Array`
+  does not remember its allocator; a custom arena reset by hand trips the memory debugger; `push_allocator(Allocator.{})`
+  crashes the next `alloc`; after `,,` write `Allocator.{proc, data}`, not `.{proc, data}` (examples 13, 42–45).
+- Layout and speed: `#align` is ignored by `New`/`NewArray` without `alignment =`; `type_info(T).alignment` reads -1
+  once T is in a signature; 64-byte padding still false-shares on Apple M-series (use 128); `#import
+  "Thread"(CACHE_LINE_SIZE=128)` is an error (second parameter list); `-o` does not vectorize loops that store through
+  a view; the x64 default heap collapses (34×) under threaded allocation; a list walked after churn is 20–90× slower
+  than the same list built in order (examples 46–49, reference/caches.md).
 
 ## Experiments to teach with (change one thing, predict, run)
 
@@ -366,6 +419,10 @@ thread_init_handler = (t: *Thread) { t.starting_context.request_limit = context.
 - Add `#import "Basic"()(MEMORY_DEBUGGER=true);` and `report_memory_leaks()` to any example that allocates.
 - Example 22 without `TEMP_ALLOCATOR_OVERWRITE_MEMORY`: the stale temp string still prints, which is the bug.
 - Example 40 without `-min_size 1`: Iprof instruments only procedures with at least 30 expressions.
+- Example 43: remove the generation check in `pool_get` and the stale `{2, 1}` handle finds "elf".
+- Example 42, rpmalloc part: it creates and destroys a heap three times without `heap_free_all`. Predict how many of
+  the 3 blocks the heap still owns, then run it.
+- `_bench/c_false_sharing.jai` on a Mac and on an Intel machine: predict the 64-byte row before running it.
 
 ## Reading older code (all verified on 0.2.032; example 11 compiles every left-hand form)
 

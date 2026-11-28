@@ -1,6 +1,8 @@
 // Data layout control: fields are laid out in declaration order with natural alignment, so
 // ordering matters (largest first avoids holes); #align N on a member or a variable aligns it
-// (e.g. 64 to keep per-thread counters on separate cache lines: no false sharing).
+// (e.g. per-thread counters on separate cache lines: a line is 64 bytes on x86-64 but 128 on
+// Apple M-series, so use 128 for code that runs there; heap arrays need NewArray(..., alignment = N),
+// because New/NewArray alone ignore #align: see examples 48 and 49).
 // Check layouts with size_of and the member offsets in type_info(T).members.
 //
 // PITFALL (0.2.032): #no_padding does NOT pack the members. For {u8, u64, u8} they stay at

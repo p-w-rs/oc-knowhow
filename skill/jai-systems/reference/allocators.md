@@ -39,7 +39,7 @@ Answers measured on 0.2.032:
 
 | Allocator | CAPS name | caps |
 |---|---|---|
-| default, macOS arm64 | "Jai wrapper for C's malloc/free/realloc functions." | MULTIPLE_THREADS, FREE, ACTUALLY_RESIZE, GENERAL_HEAP |
+| default, macOS arm64 | "Jai wrapper for C’s malloc/free/realloc functions." (typographic apostrophe; match on `contains(name, "malloc")`) | MULTIPLE_THREADS, FREE, ACTUALLY_RESIZE, GENERAL_HEAP |
 | default, Linux x86-64 | "stripped-down rpmalloc 1.4.4 intended as Default_Allocator" | + CREATE_HEAP, IS_THIS_YOURS |
 | `temp` | "modules/Basic temporary_allocator_proc" | PER_FRAME_TEMPORARY_STORAGE |
 | rpmalloc module | "rpmalloc 1.4.4" | MULTIPLE_THREADS, CREATE_HEAP, FREE, ACTUALLY_RESIZE, GENERAL_HEAP |
@@ -76,7 +76,10 @@ therefore not portable: use the rpmalloc module for heaps.
   `push_allocator`.
 - `string` and `[] T` are 16 bytes (count, data): no allocator. Free them with the allocator that made them:
   `free(s,, a)`. Mixing is undefined behaviour unless the memory debugger catches it.
-- Hash_Table, String_Builder, Bucket_Array, Pool, Thread_Group also store their allocator on first use.
+- Hash_Table, Thread_Group and Xar call `remember_allocators`; String_Builder and Pool copy `context.allocator` on
+  first use themselves. **Bucket_Array does not remember**: its `allocator` field is only read; left unset, each new
+  bucket comes from `context.allocator` at the time of the add and `bucket_array_reset` frees them with the one
+  current at the reset (probe: buckets made under A and B, reset under C: C got both frees). Set `ba.allocator` first.
 
 ## The shipped allocators
 
@@ -86,8 +89,8 @@ therefore not portable: use the rpmalloc module for heaps.
 | `temp` | scratch until a reset | reference/temporary-storage.md |
 | `Flat_Pool` | one lifetime, single thread | reserves `DEFAULT_VIRTUAL_MEMORY_RESERVE` (module parameter, 256 MiB) of address space on first use and commits as it grows (on Linux/macOS it simply maps the whole range); `get(*p, n)`, `reset(*p, overwrite_memory = false)` (0xcc stamp), `fini(*p)`; `alignment` field (default 8); allocator proc `flat_pool_allocator_proc` with data `*pool`; FREE ignored; exceeding the reserve asserts |
 | `Pool` | older arena | 64 KiB `memblock_size`; allocations ≥ `oversized_size` (6554) get their own block; `set_allocators(*pool)` before pushing it (else it would ask itself for blocks and asserts), `get`, `reset` (keeps blocks), `release`; `overwrite_memory` stamps 0xcc; program parameter `USE_UNMAPPING_ALLOCATOR` puts its blocks on Unmapping_Allocator |
-| `rpmalloc` | fast threaded heap with first-class heaps | `rpmalloc_allocator_proc(.STARTUP, 0, 0, null, null)`, then `.{rpmalloc_allocator_proc, null}`; `create_heap`/`destroy_heap`; module parameters `ENABLE_STATISTICS`, `ENABLE_ASSERTS`, `ENABLE_VALIDATE_ARGS` (all true by default: set false for release), `ENABLE_THREAD_CACHE`, `LINUX_HUGE_PAGES`, `USE_RAW` |
-| `Bucket_Array(T, N)` | stable addresses, slot reuse | `bucket_array_add(*b, item) -> (locator, *item)`, `bucket_array_find(_pointer)`, `bucket_array_remove(*b, locator)`, `for` with `remove`, `bucket_array_reset`; buckets come from its remembered allocator |
+| `rpmalloc` | fast threaded heap with first-class heaps | `rpmalloc_allocator_proc(.STARTUP, 0, 0, null, null)`, then `Allocator.{rpmalloc_allocator_proc, null}`; `create_heap`, then `heap_free_all(xx h.data)` + `destroy_heap(h)` (Heaps below); module parameters `ENABLE_STATISTICS`, `ENABLE_ASSERTS`, `ENABLE_VALIDATE_ARGS` (all true by default: set false for release), `ENABLE_THREAD_CACHE`, `LINUX_HUGE_PAGES`, `USE_RAW` |
+| `Bucket_Array(T, N)` | stable addresses, slot reuse | `bucket_array_add(*b, item) -> (locator, *item)`, `bucket_array_find(_pointer)`, `bucket_array_remove(*b, locator)`, `for` with `remove`, `bucket_array_reset`; buckets come from its `allocator` field if set, else from `context.allocator` at each add (it does not remember); no generations: a stale locator silently finds the new occupant (example 43) |
 
 Pool vs Flat_Pool: Flat_Pool is simpler, needs no backing allocator and has flatter performance (no block cycling);
 Pool's own header recommends Flat_Pool for new code. Both are single-threaded and invisible to the memory debugger.
@@ -185,20 +188,38 @@ logging, budget limits, tracing. Keep CAPS answering with your own name; forward
 ## Heaps
 
 `h := create_heap(a)` returns an `Allocator` with the same proc and new data; allocate with `New(T,, h)` or
-`push_allocator(h)`; `destroy_heap(h)` frees all of it in one call. Supported by the rpmalloc module and the x64
-default allocator, not by the arm64 default allocator. Example 13: 1000 strings in a private heap, one destroy.
+`push_allocator(h)`. Supported by the rpmalloc module and the x64 default allocator, not by the arm64 default
+allocator (CREATE_HEAP asserts there).
 
-## Choosing by lifetime (how_to/200's four categories, in practice)
+**`destroy_heap(h)` does not free the heap's blocks (0.2.032).** Both implementations answer DESTROY_HEAP by parking
+the heap on an orphan list (rpmalloc's `heap_release` semantics), and the next `create_heap` returns that same heap
+with every old block still allocated. Measured: 30 rounds of create, 100000 × 96 bytes, destroy: maxrss 12 → 278 MB
+(Mac with the rpmalloc module; powerslabs with the module and with the default allocator); with `heap_free_all`
+first it stayed at 12–15 MB. The memory debugger's destroy_heap hook marks the heap's blocks freed, so
+`report_memory_leaks()` shows nothing. Free first, then destroy (examples 13 and 42):
 
-1. Scratch within a function or frame → `temp` (+ `auto_release_temp()` for big local scratch).
-2. Valid until a clear point (end of frame, request, file, level load) → `temp` with a reset at that point, or an
-   arena/Flat_Pool/heap reset or destroyed there.
-3. Long-lived but owned by one system → that system's own arena or heap, freed in one call when the system ends
-   (also great for locality). Library code that allocates and never frees is fine inside a pushed arena.
-4. Long-lived with unclear ownership, freed piece by piece → the default heap with `free`/`defer free`. how_to/200
-   treats this as rare and a hint to redesign.
+```jai
+heap_free_all(xx h.data);           // rpmalloc module: frees every block (its Heap type is not exported: xx)
+destroy_heap(h);                     // then park it for reuse
+```
+
+## Choosing by lifetime and size
+
+how_to/200 sorts dynamic memory by lifetime: (1) gone by the end of the function, (2) gone at a clear later point,
+(3) long-lived but owned by one subsystem, (4) long-lived with unclear ownership (rare: a hint to redesign). A second
+question, whether the size is known, picks the tool. The full guide (costs, pitfalls, how each allocator makes data
+structures fast or slow, writing a pool or a heap) is reference/memory-strategies.md, with examples 41–45:
+
+| | size known | size unknown |
+|---|---|---|
+| lifetime known | `[N] T`, one exact block, carved columns; free once or never (41) | arena reset at the end: `temp`, `Flat_Pool`, chunk arena (42) |
+| lifetime unknown | slot pool + free list + generational handles (43) | default heap / rpmalloc with `free` (44) |
+
 - Data owned by value inside its owner (no separate allocation) beats all of the above.
-- Stable pointers to many same-type items with removal → Bucket_Array.
+- Library code that allocates and never frees is fine inside a pushed arena.
+- Stable pointers to many same-type items: an arena, a slot pool, or Bucket_Array (no generations: a stale locator
+  finds the new occupant).
+- A heap per lifetime needs `heap_free_all` before `destroy_heap` (above).
 
 ## Debugging allocators
 

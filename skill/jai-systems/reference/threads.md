@@ -12,7 +12,14 @@ loop). Library: `library_search query="thread_init Thread_Group add_work" source
 `#import "Thread"(LOAD_THREAD_GROUP = true)(CACHE_LINE_SIZE = 64, DO_RACE_DETECTOR = false, SET_THREAD_NAMES = true);`
 - `LOAD_THREAD_GROUP` (module parameter): false skips Thread_Group (the debug allocators import `Thread(false)` to get
   only mutexes).
-- `CACHE_LINE_SIZE` pads Thread_Group's per-worker data against false sharing.
+- `CACHE_LINE_SIZE` (program parameter, default 64) pads Thread_Group's per-worker records against false sharing
+  (`NewArray(..., alignment = CACHE_LINE_SIZE)` plus padding). Set it to **128 on Apple silicon** (128-byte lines;
+  64-byte padding measured 1.7× slower for atomics on the M2 Max, 1.0× on the Intel machines):
+  `#import "Thread"()(CACHE_LINE_SIZE=128);`. In the first list it is an error ("Argument name 'CACHE_LINE_SIZE'
+  (number 1) is not found in the module parameters."). Read it through a named import: `Thread_Module :: #import
+  "Thread";` then `Thread_Module.CACHE_LINE_SIZE`. `Worker_Info` grew from 4816 to 4880 bytes; its size is a multiple
+  of the line plus 16 (a slice follows the padding), so only worker 0's record starts on a line (example 48,
+  reference/caches.md).
 - `SET_THREAD_NAMES` (0.2.030): thread names are set on all platforms (on macOS from inside the thread).
 - `DO_RACE_DETECTOR=true` does not compile: "Unable to find a module called 'Race_Detector'" (not shipped).
 - The mutex lock-order checker (`Mutex_Order`, `DEBUG`) is disabled in the module ("DEBUG is currently disabled");
@@ -100,6 +107,12 @@ start, add_work(group, work: *void, logging_name := ""), get_completed_work(grou
   `atomic_bit_test_and_set`. On x64 these are `lock`-prefixed `#asm`; elsewhere compare-and-swap loops.
 - Example 26: 8 threads × 100000 `atomic_add` = 800000; a spin lock from `compare_and_swap` + `atomic_store` protected
   80000 plain increments. Spin locks are for very short critical sections; a `Mutex` sleeps instead.
+- Cost (measured, -o, uncontended, one counter per 128-byte line): `atomic_add` 3.7 ns on the 285K (`lock xadd`),
+  4.8 ns on the M2 Max, where 0.2.032 compiles it to a load-exclusive/store-exclusive retry loop (no single-instruction
+  LSE atomics in the disassembly). Contended (one shared counter, or counters sharing a line), 4–20× more per
+  increment with 2–8 threads; counting in a local and adding once at the end avoids all of it (reference/caches.md).
+- Atomics must be naturally aligned: a locked access across two lines is a split lock on x86 (the kernel warns and
+  slows the task) and an alignment fault for arm64's exclusive loads.
 - Runtime_Support's `one_time_init(*state, code)` (macro) runs code exactly once across threads with a CAS-based state
   machine; Basic uses it for `seconds_since_init`.
 
