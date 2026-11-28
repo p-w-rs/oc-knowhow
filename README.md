@@ -21,7 +21,11 @@ Everything stays on your computer; nothing is included in the plugin, its releas
 - **Free references**: the plugin lists about 100 freely available sources (statistics, causal inference, ML training, optimizers, quantization and evaluation,
   dataset documentation, reporting guidelines, measurement uncertainty, visualization, the gnuplot 6 manual and its
   official demo scripts, TikZ). **Settings → Know-how → Download free references** fetches them to your computer and
-  indexes them; sources a publisher only offers online are listed as links. See `references.json`.
+  indexes them; sources a publisher only offers online are listed as links. See `references.json`. After that first
+  download, new references and new pinned versions (when a release updates `references.json`) are downloaded in the
+  background at startup and hourly; a failed one is retried after 1 hour, 4 hours, then daily. Turn this off with
+  **Keep downloaded references up to date**. Problems are listed on the settings page and in
+  `~/.local/share/oc-knowhow/warnings.log`.
 - **Your own folders**: add folders of PDFs, web pages, Markdown, notebooks or Office files (Settings, or
   `pixi run library add ~/Documents/my-library`). An optional `catalog.json` in the folder describes each file for
   agents:
@@ -93,6 +97,8 @@ OpenCode 2 does not run language servers, so Jails is used from the shell (`jail
 pixi run --locked test             # type check, unit tests, installer test
 pixi run --locked examples         # render every gnuplot and diagram example into .local/examples (then look at them)
 pixi run --locked smoke-host       # end to end on the real OpenCode CLI with a scripted model
+pixi run --locked smoke-locations  # a real OpenCode server: the plugin in several project locations and across live updates
+                                   # (OC_KNOWHOW_SMOKE_OPENCODE=<version> picks another OpenCode version)
 pixi run --locked setup-search     # meaning-based search engine into .local/search (enables its tests)
 ```
 

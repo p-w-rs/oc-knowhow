@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url"
 import { Backend, type Runtime } from "./backend.js"
 import { compareJai, detectJai, detectJails, JAI_LIBRARY, jaiSkillNote, jaiSources, VALIDATED_JAI } from "./jai.js"
 import { folderSources, Library, libraryId, type LibrarySpec, type SyncReport } from "./library.js"
-import { downloadReferences, loadReferences, referenceSources, referenceStates, REFERENCES_LIBRARY } from "./references.js"
+import { downloadReferences, downloadRunning, loadReferences, lockDownloads, readDownloadErrors, referenceSources, referenceStates, REFERENCES_LIBRARY, refreshReferences } from "./references.js"
 import { KnowhowRpc, type StateView } from "./rpc.js"
 import { dataDirectory, DEFAULTS, GROUPS, PLUGIN_ID, SettingsStore, VERSION, type Group } from "./settings.js"
 
@@ -19,13 +19,17 @@ export interface KnowhowOptions {
   readonly referencesFile?: string
   /** Absolute path of the Jai compiler folder when it is not at ~/jai/current (the setting takes precedence). */
   readonly jaiRoot?: string
+  /** Milliseconds after loading before the first background update (default 5000; tests use less). */
+  readonly startupDelayMs?: number
 }
 
 export function parseOptions(raw: unknown): KnowhowOptions {
   const options = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const keys = ["dataDirectory", "referencesFile", "jaiRoot"]
   for (const key of keys) if (options[key] !== undefined && (typeof options[key] !== "string" || !isAbsolute(options[key] as string))) throw new Error(`${PLUGIN_ID}: ${key} must be an absolute path`)
-  return Object.fromEntries(keys.filter(key => options[key] !== undefined).map(key => [key, options[key]])) as KnowhowOptions
+  const delay = options.startupDelayMs
+  if (delay !== undefined && (typeof delay !== "number" || !Number.isFinite(delay) || delay < 0)) throw new Error(`${PLUGIN_ID}: startupDelayMs must be a number of milliseconds`)
+  return { ...Object.fromEntries(keys.filter(key => options[key] !== undefined).map(key => [key, options[key]])), ...(delay !== undefined && { startupDelayMs: delay }) } as KnowhowOptions
 }
 
 const SKILLS = fileURLToPath(new URL("../skill/", import.meta.url))
@@ -56,11 +60,51 @@ export function createPlugin(): Plugin.Plugin {
     id: PLUGIN_ID,
     async setup(ctx) {
       const registrations: { dispose(): Promise<void> | void }[] = []
-      const cleanup = async () => { await Promise.allSettled(registrations.splice(0).reverse().map(async item => item.dispose())) }
+      const stopped = new AbortController()
+      const cleanup = async () => { stopped.abort(); await Promise.allSettled(registrations.splice(0).reverse().map(async item => item.dispose())) }
+      let options: KnowhowOptions, data: string, settings: SettingsStore
       try {
-        const options = parseOptions(ctx.options)
-        const data = dataDirectory(options.dataDirectory)
-        const settings = await SettingsStore.open(data)
+        options = parseOptions(ctx.options)
+        data = dataDirectory(options.dataDirectory)
+        settings = await SettingsStore.open(data)
+      } catch (error) {
+        warn("disabled", error)
+        return cleanup
+      }
+      // Each part below fails on its own: a broken library never hides the skills, and the other way round.
+      const problems = new ProblemLog(data)
+      let jai = await detectJai(settings.current().jaiRoot ?? options.jaiRoot).catch(() => undefined)
+      let jails = await detectJails().catch(() => undefined)
+
+      // ---- Skills ----
+      let skillReady = false
+      try {
+        // Each skill loads on its own: one missing or unreadable file must not hide the others.
+        const skills = (await Promise.all((Object.entries(GROUPS) as [Group, readonly string[]][]).flatMap(([group, ids]) => ids.map(async id => {
+          const path = join(SKILLS, id, "SKILL.md")
+          const examples = id === "gnuplot" ? "gnuplot" : id === "diagrams" ? "diagrams" : undefined
+          try {
+            const content = (await readFile(path, "utf8")) + (examples ? `\n\n---\nOn this computer the examples are in: ${join(EXAMPLES, examples)}\n` : "")
+            return [{ group, id, path, content, description: /^description:\s*(.+)$/m.exec(content)?.[1] ?? id }]
+          } catch (error) { problems.report(`skill ${id} not registered`, error); return [] }
+        })))).flat()
+        registrations.push(await ctx.skill.transform(editor => {
+          const current = settings.current()
+          for (const skill of skills) {
+            if (!current[skill.group]) continue
+            // Jai skills carry a live note: the installed compiler and how it compares with the validated version.
+            const content = skill.group === "jai" ? skill.content + jaiSkillNote(skill.id, jai, { examples: EXAMPLES, runner: JAI_RUNNER, libraryOn: current.library, jailsQuery: JAILS_QUERY, ...(jails && { jails }) }) : skill.content
+            editor.add({ id: skill.id as never, name: skill.id as never, description: skill.description, path: skill.path as never, content })
+          }
+        }))
+        skillReady = true
+      } catch (error) { problems.report("skills not registered", error) }
+
+      // ---- Reference library: tools, background updates ----
+      let lib: LibraryPart | undefined
+      let toolsReady = false
+      const libraryStart = registrations.length
+      try {
         const backend = new Backend(join(data, "search"))
         const runtime = () => sharedRuntime(backend)
         // One library per process and data folder: OpenCode loads this plugin once per project location.
@@ -68,12 +112,10 @@ export function createPlugin(): Plugin.Plugin {
         registrations.push({ dispose: () => library.release() })
         const references = await loadReferences(options.referencesFile)
         const downloads = join(data, "references")
-        let referenceErrors: Record<string, string> = {}
-        try { referenceErrors = JSON.parse(await readFile(join(downloads, "errors.json"), "utf8")) } catch {}
+        let referenceErrors = await readDownloadErrors(downloads)
         let lastSync: (SyncReport & { at: string }) | undefined
+        let lastDownload: StateView["lastDownload"]
         let busy: Promise<unknown> | undefined
-        let jai = await detectJai(settings.current().jaiRoot ?? options.jaiRoot).catch(() => undefined)
-        let jails = await detectJails().catch(() => undefined)
 
         const specs = async (): Promise<LibrarySpec[]> => [
           { id: REFERENCES_LIBRARY, name: "Free references", sources: await referenceSources(downloads, references) },
@@ -87,7 +129,20 @@ export function createPlugin(): Plugin.Plugin {
           syncedAt.set(data, { key: specsKey(wanted), at: Date.now() })
           return report
         }
-        const background = (task: () => Promise<unknown>) => { busy ??= task().catch(error => warn("library update failed", error)).finally(() => { busy = undefined }); return busy }
+        // Background work runs one task at a time. A request made meanwhile waits its turn instead of being dropped (a
+        // folder added during a long download is still indexed); repeated requests of one kind run once.
+        const pending = new Map<string, () => Promise<unknown>>()
+        const drain = () => {
+          busy = (async () => {
+            for (let next = pending.entries().next(); !next.done; next = pending.entries().next()) {
+              const [kind, task] = next.value
+              pending.delete(kind)
+              if (stopped.signal.aborted) { pending.clear(); break }
+              try { await task() } catch (error) { if (!stopped.signal.aborted) problems.report(`library ${kind} failed`, error) }
+            }
+          })().finally(() => { busy = undefined; if (pending.size && !stopped.signal.aborted) drain() })
+        }
+        const background = (kind: "update" | "sync" | "download", task: () => Promise<unknown>) => { pending.set(kind, task); if (!busy) drain() }
 
         const folderOf = (libraryKey: string) => settings.current().folders.find(folder => libraryId(folder.path) === libraryKey)
         /** Libraries whose sections are private files on this computer: searching them needs read permission on their folder. */
@@ -182,119 +237,185 @@ export function createPlugin(): Plugin.Plugin {
             },
           })
         }))
-
-        // ---- Skills ----
-        let skillReady = false
-        try {
-          // Each skill loads on its own: one missing or unreadable file must not hide the others.
-          const skills = (await Promise.all((Object.entries(GROUPS) as [Group, readonly string[]][]).flatMap(([group, ids]) => ids.map(async id => {
-            const path = join(SKILLS, id, "SKILL.md")
-            const examples = id === "gnuplot" ? "gnuplot" : id === "diagrams" ? "diagrams" : undefined
-            try {
-              const content = (await readFile(path, "utf8")) + (examples ? `\n\n---\nOn this computer the examples are in: ${join(EXAMPLES, examples)}\n` : "")
-              return [{ group, id, path, content, description: /^description:\s*(.+)$/m.exec(content)?.[1] ?? id }]
-            } catch (error) { warn(`skill ${id} not registered`, error); return [] }
-          })))).flat()
-          registrations.push(await ctx.skill.transform(editor => {
-            const current = settings.current()
-            for (const skill of skills) {
-              if (!current[skill.group]) continue
-              // Jai skills carry a live note: the installed compiler and how it compares with the validated version.
-              const content = skill.group === "jai" ? skill.content + jaiSkillNote(skill.id, jai, { examples: EXAMPLES, runner: JAI_RUNNER, libraryOn: current.library, jailsQuery: JAILS_QUERY, ...(jails && { jails }) }) : skill.content
-              editor.add({ id: skill.id as never, name: skill.id as never, description: skill.description, path: skill.path as never, content })
-            }
-          }))
-          skillReady = true
-        } catch (error) { warn("skills not registered", error) }
+        toolsReady = true
 
         registrations.push(await ctx.session.hook("context", async input => {
           if (!settings.current().library || (input.tools && !("library_search" in input.tools))) return
           input.system.push({ type: "text", text: LIBRARY_HINT } as never)
         }))
 
-        let reloading: Promise<void> | undefined
-        const reload = () => { reloading ??= Promise.all([ctx.tool.reload(), skillReady ? ctx.skill.reload() : undefined]).then(() => {}).catch(error => warn("reload failed", error)).finally(() => { reloading = undefined }); return reloading }
-        const librarySettings = (current: typeof DEFAULTS) => JSON.stringify([current.folders, current.jai, current.jaiRoot ?? ""])
-        let lastLibrary = librarySettings(settings.current())
-        const redetect = async () => {
-          const found = await detectJai(settings.current().jaiRoot ?? options.jaiRoot).catch(() => undefined)
-          const foundJails = await detectJails().catch(() => undefined)
-          const changed = JSON.stringify(found ?? null) !== JSON.stringify(jai ?? null) || foundJails !== jails
-          jai = found
-          jails = foundJails
-          return changed
+        const syncIfChanged = async (fresh: boolean) => {
+          const last = syncedAt.get(data)
+          // Every project location loads this plugin: the first one syncs, the others skip while nothing changed.
+          if (!fresh && last && last.key === specsKey(await specs())) return
+          await sync()
         }
+        /** New references and new pinned versions, for users who downloaded references before (and kept updates on). */
+        const refresh = async (): Promise<boolean> => {
+          const current = settings.current()
+          if (!current.library || !current.autoDownload) return false
+          const result = await refreshReferences(downloads, references, { signal: stopped.signal, onProgress: (step, done, total) => { library.progress = { step, done, total } } })
+          if (!result.attempted.length) return false
+          referenceErrors = await readDownloadErrors(downloads)
+          const failed = Object.keys(result.errors).length
+          lastDownload = { at: new Date().toISOString(), downloaded: result.attempted.length - failed, failed }
+          if (failed) problems.report(`could not download ${Object.entries(result.errors).map(([id, error]) => `${id} (${error})`).join(", ")}; retrying later`)
+          return result.attempted.length > failed
+        }
+        // Downloads first, so the index is built once with the new files. Another window or the terminal may be
+        // downloading right now: then this check waits for the next round instead of indexing half-done work.
+        const update = async (startup: boolean) => {
+          const downloaded = await refresh()
+          if (await downloadRunning(downloads)) return
+          // At startup, a check more than 10 minutes old also looks for files changed in place (the user's folders).
+          const last = syncedAt.get(data)
+          await syncIfChanged(downloaded || startup && (!last || Date.now() - last.at >= 10 * 60_000))
+        }
+        const startup = setTimeout(() => background("update", () => update(true)), options.startupDelayMs ?? 5000)
+        startup.unref?.()
+        const hourly = setInterval(() => background("update", () => update(false)), 3600_000)
+        hourly.unref?.()
+        registrations.push({ dispose: () => { clearTimeout(startup); clearInterval(hourly) } })
+
+        lib = {
+          state: async () => {
+            const stored = await library.stored()
+            const own = await backend.status()
+            const shared = !own.installed && await runtime() ? "using the search engine downloaded by oc-enhance" : undefined
+            return {
+              references: await referenceStates(downloads, references, referenceErrors),
+              sources: stored.map(item => ({ library: item.library === REFERENCES_LIBRARY ? "Free references" : item.library === JAI_LIBRARY ? `Jai ${jai?.version ?? ""} (installed)`.replace("  ", " ") : folderOf(item.library)?.name ?? item.library, id: item.meta.id, title: item.meta.title, status: item.meta.status ?? "unknown", sections: item.sections, ...(item.error && { error: item.error }) })),
+              ...(library.progress && { progress: library.progress }), ...(lastSync && { lastSync }), ...(lastDownload && { lastDownload }),
+              search: { ...own, installed: own.installed || !!shared, ...(shared && { shared }) },
+            }
+          },
+          changed: () => background("sync", sync),
+          downloadReferences: () => background("download", async () => {
+            library.progress = { step: "Waiting for another download to finish", done: 0, total: 1 }
+            const lock = await lockDownloads(downloads, { wait: true, signal: stopped.signal })
+            try { await downloadReferences(downloads, references, { signal: stopped.signal, onProgress: (step, done, total) => { library.progress = { step, done, total } } }) }
+            finally { await lock?.release() }
+            referenceErrors = await readDownloadErrors(downloads)
+            await sync()
+          }),
+          installSearch: () => void backend.install().then(() => background("sync", sync)).catch(error => problems.report("search setup failed", error)),
+        }
+      } catch (error) {
+        problems.report("reference library disabled", error)
+        lib = undefined
+        await Promise.allSettled(registrations.splice(libraryStart).reverse().map(async item => item.dispose()))
+      }
+
+      // ---- Settings and the installed Jai compiler ----
+      let reloading: Promise<void> | undefined
+      const reload = () => { reloading ??= Promise.all([toolsReady ? ctx.tool.reload() : undefined, skillReady ? ctx.skill.reload() : undefined]).then(() => {}).catch(error => problems.report("reload failed", error)).finally(() => { reloading = undefined }); return reloading }
+      const librarySettings = (current: typeof DEFAULTS) => JSON.stringify([current.folders, current.jai, current.jaiRoot ?? ""])
+      let lastLibrary = librarySettings(settings.current())
+      const redetect = async () => {
+        const found = await detectJai(settings.current().jaiRoot ?? options.jaiRoot).catch(() => undefined)
+        const foundJails = await detectJails().catch(() => undefined)
+        const changed = JSON.stringify(found ?? null) !== JSON.stringify(jai ?? null) || foundJails !== jails
+        jai = found
+        jails = foundJails
+        return changed
+      }
+      try {
         registrations.push({ dispose: settings.watch(current => {
           void (async () => {
-            if (librarySettings(current) !== lastLibrary) { lastLibrary = librarySettings(current); await redetect(); void background(sync) }
+            if (librarySettings(current) !== lastLibrary) { lastLibrary = librarySettings(current); await redetect(); lib?.changed() }
             await reload()
-          })()
+          })().catch(error => problems.report("settings update failed", error))
         }) })
         // A new Jai beta installed (e.g. ~/jai/current pointing to a new folder): new skill notes and library sources.
-        const jaiTimer = setInterval(() => void redetect().then(changed => { if (changed) { void reload(); void background(sync) } }), 60_000)
+        const jaiTimer = setInterval(() => void redetect().then(changed => { if (changed) { void reload(); lib?.changed() } }).catch(() => {}), 60_000)
         jaiTimer.unref?.()
         registrations.push({ dispose: () => clearInterval(jaiTimer) })
-        // Pick up new or changed files without blocking startup. Every project location loads this plugin; the first
-        // one checks, the others skip unless the libraries differ or the last check is old.
-        const timer = setTimeout(() => void (async () => {
-          const last = syncedAt.get(data)
-          if (last && Date.now() - last.at < 10 * 60_000 && last.key === specsKey(await specs())) return
-          await background(sync)
-        })().catch(error => warn("library update failed", error)), 5000)
-        timer.unref?.()
-        registrations.push({ dispose: () => clearTimeout(timer) })
+      } catch (error) { problems.report("settings watch failed", error) }
 
-        // ---- GUI ----
-        const state = async (): Promise<StateView> => {
-          const stored = await library.stored()
-          const own = await backend.status()
-          const shared = !own.installed && await runtime() ? "using the search engine downloaded by oc-enhance" : undefined
-          return {
-            version: VERSION, settings: settings.current(), dataDirectory: data,
-            references: await referenceStates(downloads, references, referenceErrors),
-            sources: stored.map(item => ({ library: item.library === REFERENCES_LIBRARY ? "Free references" : item.library === JAI_LIBRARY ? `Jai ${jai?.version ?? ""} (installed)`.replace("  ", " ") : folderOf(item.library)?.name ?? item.library, id: item.meta.id, title: item.meta.title, status: item.meta.status ?? "unknown", sections: item.sections, ...(item.error && { error: item.error }) })),
-            jai: { validated: VALIDATED_JAI, ...(jai && { found: { version: jai.version, path: jai.path, ...(jai.date && { date: jai.date }), ...(jai.compiler && { compiler: jai.compiler }), newer: compareJai(jai.version, VALIDATED_JAI) > 0 } }) },
-            ...(library.progress && { progress: library.progress }), ...(lastSync && { lastSync }),
-            search: { ...own, installed: own.installed || !!shared, ...(shared && { shared }) },
-          }
+      // ---- Settings page ----
+      const state = async (): Promise<StateView> => {
+        const base = {
+          version: VERSION, settings: settings.current(), dataDirectory: data, problems: await problems.recent(),
+          jai: { validated: VALIDATED_JAI, ...(jai && { found: { version: jai.version, path: jai.path, ...(jai.date && { date: jai.date }), ...(jai.compiler && { compiler: jai.compiler }), newer: compareJai(jai.version, VALIDATED_JAI) > 0 } }) },
         }
+        return { ...base, ...(lib ? await lib.state() : { references: [], sources: [], search: { supported: false, installed: false, platform: `${process.platform}-${process.arch}` } }) }
+      }
+      const needLibrary = () => { if (!lib) throw new Error("The reference library could not start on this server; see Recent problems.") ; return lib }
+      try {
         registrations.push(await ctx.rpc.register(KnowhowRpc, {
           state: async () => state(),
           update: async (input: unknown) => { await settings.update(input); await reload(); return state() },
           addFolder: async (input: unknown) => {
+            const library = needLibrary()
             const { path, name } = input as { path: string; name?: string }
             const resolved = path.replace(/^~(?=\/|$)/, homedir())
             const { stat } = await import("node:fs/promises")
             if (!isAbsolute(resolved) || !(await stat(resolved).then(info => info.isDirectory(), () => false))) throw new Error(`${path} is not a folder`)
             await settings.update({ folders: [...settings.current().folders.filter(folder => folder.path !== resolved), { path: resolved, ...(name && { name }) }] })
             lastLibrary = librarySettings(settings.current())
-            void background(sync)
+            library.changed()
             return state()
           },
           removeFolder: async (input: unknown) => {
+            const library = needLibrary()
             const { path } = input as { path: string }
             await settings.update({ folders: settings.current().folders.filter(folder => folder.path !== path) })
             lastLibrary = librarySettings(settings.current())
-            void background(sync)
+            library.changed()
             return state()
           },
-          downloadReferences: async () => {
-            void background(async () => {
-              referenceErrors = await downloadReferences(downloads, references, { onProgress: (step, done, total) => { library.progress = { step, done, total } } })
-              await sync()
-            })
-            return state()
-          },
-          reindex: async () => { void background(sync); return state() },
-          installSearch: async () => { void backend.install().then(() => background(sync)).catch(error => warn("search setup failed", error)); return state() },
+          downloadReferences: async () => { needLibrary().downloadReferences(); return state() },
+          reindex: async () => { needLibrary().changed(); return state() },
+          installSearch: async () => { needLibrary().installSearch(); return state() },
         } as never))
-      } catch (error) {
-        warn("disabled", error)
-        await cleanup()
-      }
+      } catch (error) { problems.report("settings page not available", error) }
       return cleanup
     },
   }) satisfies Plugin.Plugin
+}
+
+/** What the settings page needs from the reference library part (absent when that part could not start). */
+interface LibraryPart {
+  state(): Promise<Pick<StateView, "references" | "sources" | "progress" | "lastSync" | "lastDownload" | "search">>
+  /** The libraries changed (folders, Jai, a forced update): re-index in the background. */
+  changed(): void
+  downloadReferences(): void
+  installSearch(): void
+}
+
+/**
+ * Problems this plugin hit: printed (the server's console is not always visible), appended to <data>/warnings.log
+ * (bounded) and listed on the settings page, so a part that could not start is never silent.
+ */
+class ProblemLog {
+  readonly #file: string
+  #writing: Promise<void> = Promise.resolve()
+  constructor(data: string) { this.#file = join(data, "warnings.log") }
+
+  report(message: string, error?: unknown): void {
+    warn(message, error)
+    const detail = error ? `: ${error instanceof Error ? error.message : String(error)}` : ""
+    const line = `${new Date().toISOString()} ${VERSION} ${message}${detail}`.replace(/\s+/g, " ").slice(0, 1000)
+    this.#writing = this.#writing.then(async () => {
+      const { appendFile, stat, writeFile } = await import("node:fs/promises")
+      await appendFile(this.#file, `${line}\n`, { mode: 0o600 })
+      if (((await stat(this.#file)).size) > 64 * 1024) {
+        const text = await readFile(this.#file, "utf8")
+        await writeFile(this.#file, text.slice(-32 * 1024).replace(/^[^\n]*\n/, ""), { mode: 0o600 })
+      }
+    }).catch(() => {})
+  }
+
+  /** This version's problems of the last week, newest last. */
+  async recent(limit = 10): Promise<string[]> {
+    await this.#writing
+    const text = await readFile(this.#file, "utf8").catch(() => "")
+    const since = Date.now() - 7 * 24 * 3600_000
+    return text.split("\n").filter(line => {
+      const [at, version] = line.split(" ")
+      return version === VERSION && Date.parse(at ?? "") >= since
+    }).slice(-limit)
+  }
 }
 
 export default createPlugin()

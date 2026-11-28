@@ -1,7 +1,7 @@
 import { after, before, test } from "node:test"
 import assert from "node:assert/strict"
 import { createServer, type Server } from "node:http"
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { Plugin } from "@opencode/plugin"
@@ -22,10 +22,10 @@ before(async () => {
 after(async () => { server.close(); await Promise.all(dirs.map(dir => rm(dir, { recursive: true, force: true }))) })
 const scratch = async () => { const dir = await mkdtemp(join(tmpdir(), "ockh-")); dirs.push(dir); return dir }
 
-async function host(options: { deny?: (path: string) => boolean; jaiRoot?: string } = {}) {
-  const data = await scratch()
+async function host(options: { deny?: (path: string) => boolean; jaiRoot?: string; data?: string; references?: string; startupDelayMs?: number; factory?: () => Plugin.Plugin } = {}) {
+  const data = options.data ?? await scratch()
   const referencesFile = join(data, "refs.json")
-  await writeFile(referencesFile, JSON.stringify({ sources: [
+  await writeFile(referencesFile, options.references ?? JSON.stringify({ sources: [
     { id: "stats-guide", title: "Stats Guide", kind: "pdf", url: `${base}/stats.pdf`, status: "current", fields: ["statistics"], useFor: "reporting effects" },
     { id: "colour", title: "Colour Paper", kind: "html", url: `${base}/page.html`, status: "current", fields: ["visualization"] },
     { id: "online-book", title: "Online Book", kind: "link", url: "https://example.org/book", status: "current", fields: ["causal"] },
@@ -38,15 +38,16 @@ async function host(options: { deny?: (path: string) => boolean; jaiRoot?: strin
   const rebuild = () => { tools.clear(); for (const t of transforms) t({ add: (tool: any) => tools.set(tool.name, tool) }) }
   const rebuildSkills = () => { skills.length = 0; for (const t of skillTransforms) t({ add: (skill: any) => skills.push(skill) }) }
   const ctx = {
-    // Tests never pick up a Jai compiler installed on the machine running them.
-    options: { dataDirectory: data, referencesFile, jaiRoot: options.jaiRoot ?? join(data, "no-jai") },
+    // Tests never pick up a Jai compiler installed on the machine running them. The first background update waits an
+    // hour unless a test asks for it, so tests that drive the library themselves are not raced by it.
+    options: { dataDirectory: data, referencesFile, jaiRoot: options.jaiRoot ?? join(data, "no-jai"), startupDelayMs: options.startupDelayMs ?? 3_600_000 },
     permission: { assert: async (input: { resources: string[] }) => { if (options.deny?.(input.resources[0]!)) throw Object.assign(new Error("denied"), { name: "Permission.BlockedError" }) } },
     tool: { transform: async (cb: any) => { transforms.push(cb); rebuild(); return { dispose: async () => {} } }, reload: async () => rebuild() },
     skill: { transform: async (cb: any) => { skillTransforms.push(cb); rebuildSkills(); return { dispose: async () => {} } }, reload: async () => rebuildSkills() },
     rpc: { register: async (_: unknown, handlers: any) => { rpc = handlers; return { dispose: async () => {} } } },
     session: { hook: async (name: string, cb: any) => { if (name === "context") context = cb; return { dispose: async () => {} } } },
   }
-  const cleanup = await createPlugin().setup(ctx as unknown as Plugin.Context) as () => Promise<void>
+  const cleanup = await (options.factory ?? createPlugin)().setup(ctx as unknown as Plugin.Context) as () => Promise<void>
   const call = async (name: string, input: unknown) => (await tools.get(name)!.execute(input, { sessionID: "s", agent: "build", messageID: "m", id: "c", signal: new AbortController().signal })).content
   const until = async (check: () => Promise<boolean>) => { for (let i = 0; i < 400 && !(await check()); i++) await new Promise(r => setTimeout(r, 50)) }
   const system = async (tools?: Record<string, unknown>) => { const input = { sessionID: "s", system: [] as { text: string }[], tools }; await context?.(input); return input.system.map(item => item.text).join("\n") }
@@ -149,4 +150,65 @@ test("Jai: four skills with a live version note; the installed bundle becomes a 
     assert.ok(!h.skills.some(s => s.id.startsWith("jai")))
     await h.until(async () => { const s = await h.rpc().state({}); return !s.progress && !s.sources.some((x: { id: string }) => x.id.startsWith("jai-")) })
   } finally { await h.cleanup() }
+})
+
+test("every project location gets the plugin: copies of the module side by side share one data folder", async () => {
+  // OpenCode evaluates the plugin once per project location. 1.7.0-1.7.2 worked only in the first one per process: the
+  // others failed on the shared library and registered nothing.
+  const data = await scratch()
+  const copy = await import(`./index.ts?location=${Date.now()}`) as { createPlugin: typeof createPlugin }
+  const first = await host({ data })
+  const second = await host({ data, factory: copy.createPlugin })
+  try {
+    for (const h of [first, second]) {
+      assert.deepEqual([...h.tools.keys()].sort(), ["library_catalog", "library_read", "library_search"])
+      assert.ok(h.skills.some(s => s.id === "stats-inference"), "skills registered")
+      assert.deepEqual((await h.rpc().state({})).problems, [])
+    }
+    await second.rpc().downloadReferences({})
+    await second.until(async () => (await first.rpc().state({})).sources.some((s: { id: string }) => s.id === "stats-guide"))
+    assert.match(await first.call("library_search", { query: "confidence intervals effect sizes", mode: "keyword" }), /Stats Guide/, "one library: what one location indexed, the other finds")
+  } finally { await second.cleanup(); await first.cleanup() }
+})
+
+test("a part that cannot start does not take the others down; the problem is reported", async () => {
+  const h = await host({ references: "{ not json" })
+  try {
+    assert.ok(h.skills.some(s => s.id === "gnuplot"), "skills still registered")
+    assert.equal(h.tools.size, 0, "no library tools")
+    const state = await h.rpc().state({})
+    assert.deepEqual(state.sources, [])
+    assert.match(state.problems.join("\n"), /reference library disabled/)
+    assert.match(await readFile(join(h.data, "warnings.log"), "utf8"), /reference library disabled/)
+    await assert.rejects(h.rpc().reindex({}), /could not start/)
+    await h.rpc().update({ ml: false })
+    assert.ok(!h.skills.some(s => s.id === "ml-deploy"), "settings still work")
+  } finally { await h.cleanup() }
+})
+
+test("downloaded references are kept up to date in the background (only for users who downloaded before)", async () => {
+  // Opted in: one reference is already downloaded; the others are new to this computer.
+  const data = await scratch()
+  await mkdir(join(data, "references"), { recursive: true })
+  await writeFile(join(data, "references", "stats-guide.pdf"), Buffer.from(pdf(["Effect sizes with confidence intervals should be reported instead of significance verdicts."])))
+  const h = await host({ data, startupDelayMs: 0 })
+  try {
+    await h.until(async () => !!(await h.rpc().state({})).lastDownload)
+    await h.until(async () => { const s = await h.rpc().state({}); return !s.progress && s.sources.some((x: { id: string }) => x.id === "colour") })
+    const state = await h.rpc().state({})
+    assert.deepEqual(state.lastDownload && { downloaded: state.lastDownload.downloaded, failed: state.lastDownload.failed }, { downloaded: 1, failed: 1 })
+    assert.deepEqual(state.references.map((r: { id: string; state: string }) => [r.id, r.state]), [["stats-guide", "downloaded"], ["colour", "downloaded"], ["online-book", "link"], ["broken", "missing"]])
+    assert.match(state.problems.join("\n"), /could not download broken/)
+    assert.match(await h.call("library_search", { query: "perceptually uniform colour maps", mode: "keyword" }), /Colour Paper/)
+    const tries = JSON.parse(await readFile(join(data, "references", "auto-download.json"), "utf8"))
+    assert.deepEqual(Object.keys(tries), ["broken"], "the failed one waits for a retry")
+  } finally { await h.cleanup() }
+  // Never downloaded anything: nothing is fetched behind the user's back.
+  const fresh = await host({ startupDelayMs: 0 })
+  try {
+    await new Promise(r => setTimeout(r, 1500))
+    const state = await fresh.rpc().state({})
+    assert.equal(state.lastDownload, undefined)
+    assert.ok(state.references.every((r: { state: string }) => r.state !== "downloaded"))
+  } finally { await fresh.cleanup() }
 })

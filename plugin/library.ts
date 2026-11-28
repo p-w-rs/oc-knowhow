@@ -3,8 +3,10 @@
 // search, and read back by id with citations. Everything lives in the plugin's data folder; nothing is shipped.
 import { execFile } from "node:child_process"
 import { createHash, randomBytes } from "node:crypto"
+import { readFileSync } from "node:fs"
 import { mkdir, open, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises"
 import { basename, extname, join, relative, resolve, sep } from "node:path"
+import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 import { colgrep, type Runtime } from "./backend.js"
 import { documentKind, extractDocument, readBounded, type Extracted } from "./documents.js"
@@ -499,8 +501,19 @@ interface Entry { readonly item: StoredInfo; readonly stamp: number; readonly of
 const EMPTY_INDEX: LoadedIndex = { id: "", keys: [], sectionSource: new Uint32Array(), sectionUnit: new Uint32Array(), lengths: new Uint32Array(), average: 0, terms: new Map(), termOffsets: new Uint32Array(), termCounts: new Uint32Array(), postings: new Uint32Array() }
 const CHUNK = 1 << 22
 
-/** Library instances shared within this process (also across reloads of this module), one per data folder and version. */
-const shared: Map<string, Library> = ((globalThis as Record<symbol, unknown>)[Symbol.for("oc-knowhow.libraries")] ??= new Map()) as Map<string, Library>
+/**
+ * Library instances shared within this process, one per data folder and copy of this file. OpenCode evaluates the
+ * plugin once per project location, so several copies of this module run side by side: copies of the same file share
+ * one library, and use another copy's instance only through its methods (a copy cannot touch another's #fields).
+ */
+const shared: Map<string, Library> = ((globalThis as Record<symbol, unknown>)[Symbol.for("oc-knowhow.libraries.v2")] ??= new Map()) as Map<string, Library>
+const MODULE_FILE = (() => { const url = import.meta.url.replace(/[?#].*$/, ""); try { return fileURLToPath(url) } catch { return url } })()
+let moduleHash: string | undefined
+/** This file's path and contents: a changed or different copy (a newer release, a development checkout) never shares. */
+function moduleKey(): string {
+  try { moduleHash ??= createHash("sha256").update(readFileSync(MODULE_FILE)).digest("hex").slice(0, 16) } catch { moduleHash ??= VERSION }
+  return `${MODULE_FILE}:${moduleHash}`
+}
 
 /** Byte offsets where the lines of a file start. */
 function lineStarts(bytes: Uint8Array): number[] {
@@ -519,6 +532,7 @@ export class Library {
   #info = new Map<string, Entry>()
   progress?: Progress
   #running?: Promise<SyncReport>
+  #runningKey?: string
   #migrating?: Promise<void>
   #refs = 0
   #sharedKey?: string
@@ -532,7 +546,7 @@ export class Library {
 
   /** The process-wide library for a data folder: every plugin instance (one per project location) shares it. */
   static shared(dataDirectory: string, runtime: () => Promise<Runtime | undefined>): Library {
-    const key = `${VERSION}:${resolve(dataDirectory)}`
+    const key = `${moduleKey()}:${resolve(dataDirectory)}`
     let library = shared.get(key)
     if (!library) { library = new Library(dataDirectory, runtime); library.#sharedKey = key; shared.set(key, library) }
     return library
@@ -540,9 +554,14 @@ export class Library {
 
   /** `shared`, counting users: when the last one releases it (plugin unloaded or updated), its memory is let go. */
   static acquire(dataDirectory: string, runtime: () => Promise<Runtime | undefined>): Library {
-    const library = Library.shared(dataDirectory, runtime)
-    library.#refs++
-    return library
+    // A method call, not `library.#refs++`: the instance may come from another copy of this module.
+    return Library.shared(dataDirectory, runtime).retain()
+  }
+
+  /** Counts one more user of a shared library (see `acquire`). */
+  retain(): this {
+    this.#refs++
+    return this
   }
 
   release(): void {
@@ -661,10 +680,22 @@ export class Library {
     }
   }
 
-  /** Brings the index in line with the given libraries: new and changed sources are converted, removed ones dropped. */
+  /**
+   * Brings the index in line with the given libraries: new and changed sources are converted, removed ones dropped.
+   * One run at a time per library: a request for the same libraries joins the running one; a different request (new
+   * downloads, another folder) runs after it, so its changes are never lost to a run that started earlier.
+   */
   sync(libraries: readonly LibrarySpec[], signal?: AbortSignal): Promise<SyncReport> {
-    this.#running ??= this.#sync(libraries, signal).finally(() => { this.#running = undefined; this.progress = undefined })
-    return this.#running
+    const key = JSON.stringify(libraries)
+    if (this.#running && this.#runningKey === key) return this.#running
+    const previous = this.#running
+    const run: Promise<SyncReport> = (async () => {
+      if (previous) await previous.catch(() => {})
+      return this.#sync(libraries, signal)
+    })().finally(() => { if (this.#running === run) { this.#running = undefined; this.#runningKey = undefined; this.progress = undefined } })
+    this.#running = run
+    this.#runningKey = key
+    return run
   }
 
   async #sync(libraries: readonly LibrarySpec[], signal?: AbortSignal): Promise<SyncReport> {

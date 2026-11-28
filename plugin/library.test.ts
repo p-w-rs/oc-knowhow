@@ -327,6 +327,24 @@ test("one library per data folder per process; info without texts; no rebuild wh
   assert.ok(names.includes("index-v3.json.99999.abcd.tmp"), "a recent temp file may belong to a running write")
 })
 
+test("copies of this module side by side (OpenCode loads one per project location) share one library safely", async () => {
+  const data = await scratch()
+  const runtime = async () => undefined
+  const copy = await import(`./library.ts?copy=${Date.now()}`) as { Library: typeof Library }
+  assert.notEqual(copy.Library, Library, "a separate copy of the module")
+  // 1.7.0-1.7.2: the second copy threw "Cannot access invalid private field" here and the plugin disabled itself.
+  const first = Library.acquire(data, runtime)
+  const second = copy.Library.acquire(data, runtime)
+  assert.equal(second, first, "both copies use the same library")
+  const folder = await libraryFolder()
+  await second.sync([{ id: "mine", name: "Mine", sources: await folderSources(folder) }])
+  assert.equal((await first.search("bootstrap resample", { mode: "keyword" })).hits[0]?.source, "notes")
+  second.release()
+  assert.equal(Library.shared(data, runtime), first, "still shared while one copy uses it")
+  first.release()
+  assert.notEqual(Library.shared(data, runtime), first, "let go after the last release")
+})
+
 test("search spreads results over sources, but goes deep when sources are named", async () => {
   const folder = await scratch()
   for (let i = 0; i < 6; i++) await writeFile(join(folder, `part${i}.md`), `# Allocators ${i}\n\n${"Temporary storage is reset every frame by the allocator. ".repeat(3)}`)

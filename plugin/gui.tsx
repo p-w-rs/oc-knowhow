@@ -69,6 +69,10 @@ function KnowhowView(props: { ctx: Context }) {
               <span style={muted}>Free references: {counts().downloaded} downloaded, {counts().missing} not yet, {counts().links} read online.</span>
               <Show when={counts().missing}><ctx.ui.Button size="small" variant="contrast" icon="download" onClick={() => void act(() => api().downloadReferences({}), "Downloading in the background")}>Download free references</ctx.ui.Button></Show>
             </div>
+            <Show when={counts().downloaded}>
+              <ctx.ui.Switch label="Keep downloaded references up to date" checked={current().settings.autoDownload} onChange={value => void act(() => api().update({ autoDownload: value }))} />
+              <span style={muted}>New references and new versions of pinned sources are downloaded in the background when OpenCode starts and then hourly.{current().lastDownload ? ` Last update ${new Date(current().lastDownload!.at).toLocaleString()}: ${current().lastDownload!.downloaded} downloaded${current().lastDownload!.failed ? `, ${current().lastDownload!.failed} failed (retried later)` : ""}.` : ""}</span>
+            </Show>
             <Show when={current().references.some(item => item.error)}><span style={{ ...muted, color: "#e03131" }}>Could not download: {current().references.filter(item => item.error).map(item => item.title).join(", ")}</span></Show>
             <span style={muted}>Your folders (private; PDFs, web pages, Markdown, notebooks, Office files, source code; an optional catalog.json describes each file, or turns a sub-folder such as a cloned repository into one source):</span>
             <For each={current().settings.folders}>{item => (
@@ -95,6 +99,12 @@ function KnowhowView(props: { ctx: Context }) {
             <Show when={current().search.shared}><span style={muted}>Meaning-based search: {current().search.shared}.</span></Show>
           </Show>
         </div>
+        <Show when={current().problems?.length}>
+          <div style={card}>
+            <span><b>Recent problems</b> <span style={muted}>(also in {current().dataDirectory}/warnings.log)</span></span>
+            <For each={(current().problems ?? []).slice(-5)}>{line => <span style={{ ...muted, "font-family": "monospace", "word-break": "break-word" }}>{line}</span>}</For>
+          </div>
+        </Show>
         <span style={muted}>oc-knowhow {current().version} · data in {current().dataDirectory}</span>
       </>}</Show>
     </div>

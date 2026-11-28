@@ -4,7 +4,7 @@ import { homedir } from "node:os"
 import { isAbsolute, join } from "node:path"
 
 export const PLUGIN_ID = "oc-knowhow"
-export const VERSION = "1.7.2"
+export const VERSION = "1.7.3"
 
 export const dataDirectory = (configured?: string) => configured ?? join(process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"), PLUGIN_ID)
 
@@ -34,15 +34,17 @@ export interface Settings {
   readonly jaiRoot?: string
   /** Library tools (search your folders and the downloaded free references). */
   readonly library: boolean
+  /** Once free references were downloaded, fetch new ones and new pinned versions automatically. */
+  readonly autoDownload: boolean
   readonly folders: readonly LibraryFolder[]
 }
 
-export const DEFAULTS: Settings = { ml: true, datascience: true, figures: true, odin: true, robotics: true, clibs: true, jai: true, library: true, folders: [] }
+export const DEFAULTS: Settings = { ml: true, datascience: true, figures: true, odin: true, robotics: true, clibs: true, jai: true, library: true, autoDownload: true, folders: [] }
 
 export function normalizeSettings(raw: unknown, base: Settings = DEFAULTS): Settings {
   const value = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {}
-  const result: Record<string, unknown> = { ...base }
-  for (const key of ["ml", "datascience", "figures", "odin", "robotics", "clibs", "jai", "library"] as const) if (typeof value[key] === "boolean") result[key] = value[key]
+  const result: Record<string, unknown> = { ...DEFAULTS, ...base }
+  for (const key of ["ml", "datascience", "figures", "odin", "robotics", "clibs", "jai", "library", "autoDownload"] as const) if (typeof value[key] === "boolean") result[key] = value[key]
   if (value.jaiRoot === null || value.jaiRoot === "") delete result.jaiRoot
   else if (typeof value.jaiRoot === "string") { const path = value.jaiRoot.trim().replace(/^~(?=\/|$)/, homedir()); if (isAbsolute(path)) result.jaiRoot = path }
   if (Array.isArray(value.folders)) {

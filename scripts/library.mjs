@@ -9,7 +9,7 @@ import { join, resolve } from "node:path"
 import { Backend } from "../plugin/backend.ts"
 import { detectJai, JAI_LIBRARY, jaiSources } from "../plugin/jai.ts"
 import { folderSources, Library, libraryId } from "../plugin/library.ts"
-import { downloadReferences, loadReferences, referenceSources, referenceStates, REFERENCES_LIBRARY } from "../plugin/references.ts"
+import { downloadReferences, loadReferences, lockDownloads, referenceSources, referenceStates, REFERENCES_LIBRARY } from "../plugin/references.ts"
 import { dataDirectory, SettingsStore } from "../plugin/settings.ts"
 
 const [command = "status", ...args] = process.argv.slice(2)
@@ -41,7 +41,12 @@ if (command === "add") {
   await settings.update({ folders: settings.current().folders.filter(item => item.path !== resolve(args[0] ?? "")) })
   await sync()
 } else if (command === "download") {
-  const errors = await downloadReferences(downloads, references, { onProgress: (step, done, total) => process.stdout.write(`\r  ${step.slice(0, 90).padEnd(90)} ${done + 1}/${total}`) })
+  // One download at a time: OpenCode may be updating the references in the background right now.
+  let lock = await lockDownloads(downloads)
+  if (!lock) { console.log("  Another download is running (OpenCode or another terminal); waiting for it to finish…"); lock = await lockDownloads(downloads, { wait: true }) }
+  let errors
+  try { errors = await downloadReferences(downloads, references, { onProgress: (step, done, total) => process.stdout.write(`\r  ${step.slice(0, 90).padEnd(90)} ${done + 1}/${total}`) }) }
+  finally { await lock?.release() }
   process.stdout.write("\n")
   for (const [id, error] of Object.entries(errors)) console.log(`  could not download ${id}: ${error}`)
   await sync()
