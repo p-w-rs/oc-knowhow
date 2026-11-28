@@ -1,13 +1,14 @@
 ---
 name: mcu-tooling
-description: Microcontroller development for the Raspberry Pi Pico 2 W (RP2350, Cortex-M33 + Hazard3 RISC-V, CYW43439 Wi-Fi) and ESP32-S3 (Xtensa LX7), before and after the board arrives — toolchains without system installs (ARM GNU tarball, pico-sdk-tools RISC-V gcc, ESP-IDF install.sh into a folder, Pixi for cmake/ninja/python), pico-sdk 2.x builds (PICO_BOARD=pico2_w, PICO_PLATFORM rp2350-arm-s/rp2350-riscv, pico_cyw43_arch + lwIP, stdio USB/UART, UF2), picotool (info, load -x, BOOTSEL, reboot), probe-rs (list, run, download, attach, gdb, RTT/defmt, chip list; Debug Probe CMSIS-DAP and ESP32-S3 USB-JTAG), esptool 5 (write-flash, merge-bin) and espflash 4 (flash --monitor, save-image), ESP-IDF v6 (set-target, sdkconfig defaults overlays, protocol_examples_common, idf.py qemu), Espressif QEMU for ESP32-S3 with Ethernet and UART-to-pty, Renode (portable, headless, platforms list, renode-test Robot suites; no RP2xxx/ESP32 models), zenoh-pico firmware on both chips (Wi-Fi TCP, UART, USB CDC; ESP-IDF component wrapper) talking to zenohd, and Odin objects linked into pico-sdk. Load before building, flashing, emulating or debugging firmware for these chips.
+description: Microcontroller development for the Raspberry Pi Pico 2 W (RP2350, Cortex-M33 + Hazard3 RISC-V, CYW43439 Wi-Fi) and ESP32-S3 (Xtensa LX7), before and after the board arrives — toolchains without system installs (ARM GNU tarball, pico-sdk-tools RISC-V gcc, ESP-IDF install.sh into a folder, Pixi for cmake/ninja/python), pico-sdk 2.x builds (PICO_BOARD=pico2_w, PICO_PLATFORM rp2350-arm-s/rp2350-riscv, pico_cyw43_arch + lwIP, stdio USB/UART, UF2), picotool (info, load -x, BOOTSEL, reboot), probe-rs (list, run, download, attach, gdb, RTT/defmt, chip list; Debug Probe CMSIS-DAP and ESP32-S3 USB-JTAG), esptool 5 (write-flash, merge-bin) and espflash 4 (flash --monitor, save-image), ESP-IDF v6 (set-target, sdkconfig defaults overlays, protocol_examples_common, idf.py qemu), Espressif QEMU for ESP32-S3 with Ethernet and UART-to-pty, Renode (portable, headless, platforms list, renode-test Robot suites; no RP2xxx/ESP32 platforms), zenoh-pico firmware on both chips (Wi-Fi TCP, UART, USB CDC; ESP-IDF component wrapper) talking to zenohd, and Odin objects linked into pico-sdk. Load before building, flashing, emulating or debugging firmware for these chips.
 ---
 
 # MCU tooling: Pico 2 W and ESP32-S3
 
 Validated 13 Nov 2026 on Linux x86_64 (no board attached): every build below produced a flashable image, ESP32-S3
 firmware **ran in QEMU** and exchanged Zenoh traffic with a host `zenohd` over emulated Ethernet *and* emulated UART,
-Renode ran a Zephyr ELF under `renode-test`. Ready-made images, sources and exact flash/test steps:
+Renode ran a Zephyr ELF under `renode-test`. Re-run 27 Nov 2026 for Renode 1.17.1 and esptool 5.7.0 (the Renode
+suite and the ESP-IDF v6.1.1 + QEMU flows: all passed). Ready-made images, sources and exact flash/test steps:
 `oc-knowhow/.local/mcu-ready/README.md`. Related skills: **odin-targets** (freestanding Odin, Cortex-M, QEMU),
 **zenoh** (§7 zenoh-pico, serial `zenohd`), **pixi**, **c-networking**, **c-platform**. Library references:
 `pico-sdk-source` (hardware_* / pico_* headers with doc comments), `pico-examples-source`, `picotool-source`,
@@ -25,11 +26,11 @@ https://docs.espressif.com/projects/esp-idf/en/v6.1.1/esp32s3/.
 | RISC-V compiler (Hazard3) | riscv32-pico-elf gcc 16.1.0 | `pico-sdk-tools` release `v2.3.1-0`: `riscv-toolchain-16-<arch>-lin.tar.gz` |
 | picotool | **2.3.1** | `pico-sdk-tools` `picotool-2.3.1-<arch>-lin.tar.gz` (contains `picotoolConfig.cmake`: set `picotool_DIR`) |
 | probe-rs | **0.32.0** (Jul 2026) | release `probe-rs-tools-<triple>.tar.xz` (or `cargo install probe-rs-tools` with Pixi `rust`) |
-| ESP-IDF | **v6.1.1** (2026-11-16, bug-fix release of v6.1; validated 20 Nov 2026 incl. QEMU, see §5 pitfall), also v6.0.3, v5.5.6 LTS | `git clone -b v6.1.1 --depth 1` + `git submodule update --init --depth 1`, `./install.sh esp32s3` |
-| esptool | **5.6.0** | bundled in the IDF venv; conda-forge `esptool`; `pixi exec --spec esptool esptool …` |
+| ESP-IDF | **v6.1.1** (2026-11-16, bug-fix release of v6.1; validated 20 and 27 Nov 2026 incl. QEMU, see §5 pitfall), also v6.0.3, v5.5.6 LTS | `git clone -b v6.1.1 --depth 1` + `git submodule update --init --depth 1`, `./install.sh esp32s3` |
+| esptool | **5.7.0** (2026-11-24; flasher stub v2.0.0) | IDF venv (`install.sh` downloads `espidf.constraints.v6.1.txt`: `esptool>=5.3.0.dev0,<6`, so v6.1.1 got 5.7.0); conda-forge; `pixi exec --spec esptool=5.7.0 esptool …` |
 | espflash | **4.7.0** | release `espflash-<triple>.zip` (no `unzip` on the host? `bsdtar xf`) |
 | Espressif QEMU | 9.2.2 `esp-develop-…-20261109`; IDF v6.1/v6.1.1 install `…-20260417` | `python tools/idf_tools.py install qemu-xtensa` |
-| Renode | **1.17.0** (Sep 2026) | `renode-1.17.0.linux-portable.tar.gz` (bundles .NET 8), osx-arm64 dmg, deb/rpm |
+| Renode | **1.17.1** (2026-11-23) | `renode-1.17.1.linux-portable.tar.gz` (bundles .NET 10.0.15; deb/rpm need `dotnet-runtime-10.0`), linux-arm64 portable, osx-arm64 dmg |
 | zenoh-pico / zenohd | 1.10.2 | see **zenoh** §7 (serial needs a `transport_serial` zenohd) |
 
 conda-forge has `cmake`, `ninja`, `python`, `esptool`, `openocd` 0.12, `libusb`; it has **no** `gcc-arm-none-eabi`,
@@ -94,7 +95,7 @@ pixi run cmake --build build                 # build/app.uf2 .elf .bin .hex .dis
   `arm-none-eabi-gdb app.elf -ex 'target remote :1337'`. `probe-rs dap-server` for VS Code.
 - ESP32-S3: `probe-rs run --chip esp32s3 app.elf` builds the IDF image itself (`--idf-bootloader`,
   `--idf-partition-table`, `--idf-flash-mode/--idf-flash-freq`); ESP-IDF's own route is `idf.py openocd` +
-  `idf.py gdb` (openocd-esp32 v0.12.0-esp32-20260703, xtensa gdb 17.1).
+  `idf.py gdb` (IDF v6.1.1 installs openocd-esp32 v0.12.0-esp32-20260831, xtensa gdb 17.1).
 
 ## 4. ESP-IDF v6.1.x for ESP32-S3
 
@@ -116,7 +117,10 @@ pixi run bash -c '. esp-idf/export.sh && cd app && idf.py set-target esp32s3 && 
   default-reset --after hard-reset write-flash @flash_args` (hyphenated subcommands/values; `write_flash`/
   `default_reset` are the v4 spellings). `idf.py -p /dev/ttyACM0 flash monitor`. Offsets: bootloader **0x0** on S3
   (0x1000 on classic ESP32), partition table 0x8000, app 0x10000. `esptool --chip esp32s3 image-info app.bin` works
-  offline.
+  offline. esptool 5.7.0 vs 5.6.0 (27 Nov 2026): same `esptool` commands; `image-info`, `merge-bin` (raw/uf2/hex)
+  and the build's `elf2image` gave byte-identical output. eFuse calibration dump: `espefuse calib-info` (5.7.0 name;
+  `adc-info` still works but prints "Deprecated: Command 'adc-info' is deprecated. Use 'calib-info' instead."; 5.6.0
+  has only `adc-info`). `espefuse --virt --chip esp32s3 …` runs on virtual eFuses, no chip needed.
 - espflash 4.7: `espflash flash --chip esp32s3 -p PORT --monitor app.elf` takes the **ELF**; pass the IDF
   `--bootloader bootloader.bin --partition-table partitions.csv` or it uses its own (≈4 MB app partition vs IDF's
   1 MB `factory`). `espflash save-image --chip esp32s3 --merge app.elf out.bin` (offline, validated), `monitor`,
@@ -145,19 +149,47 @@ pixi run bash -c '. esp-idf/export.sh && cd app && idf.py set-target esp32s3 && 
 - **UART to the host**: a second `-serial pty` becomes UART1 ("char device redirected to /dev/pts/N (label
   serial1)"); first `-serial file:uart0.log` keeps the console. Run QEMU directly (`scripts/qemu-serial.sh` in
   mcu-ready: `esptool merge-bin --pad-to-size=4MB … @flash_args`, 1024-byte zero efuse file).
+- The normal QEMU flow never runs the flasher stub (QEMU boots the merged image). To test flashing itself, start QEMU
+  in ROM download mode: `-global driver=esp32s3.gpio,property=strap_mode,value=0x07` (what `idf.py qemu efuse-*`
+  uses; the ROM prints `boot:0x7 (UART0_BOOT)`; `0x00` = `DOWNLOAD(USB/UART0)`, `0x04` = SPI flash boot),
+  `-serial tcp::5555,server,nowait` and `-drive file=<0xFF-filled file of the flash size>,if=mtd,format=raw` (receives
+  the writes), then `esptool -p socket://localhost:5555 --chip esp32s3 --before no-reset --after no-reset write-flash
+  @flash_args` (also `flash-id`, `espefuse … calib-info`). 27 Nov 2026: the 151 kB hello_world app took 7.8 s with
+  the stub (5.7.0's v2.0.0 and 5.6.0's v1.4.1 alike) and 19.4 s with `--no-stub`; the flash file then equalled the
+  `merge-bin` image and booted. The legacy stub (hidden `--stub-version 1`, unchanged since 5.6.0) failed here ("No
+  more data to read from the serial port"). A `tcp …,nowait` serial drops output sent before a client connects: log
+  the console with `-serial file:`.
 
 ## 6. Renode (simulation, CI)
 
-- 1.17.0 portable: `renode --disable-gui --plain --console -e "mach create; machine LoadPlatformDescription
-  @platforms/cpus/nrf52840.repl; sysbus LoadELF @<url-or-path>; start; …; quit"`. Platforms: ~120 CPUs/SoCs in
-  `platforms/cpus` (STM32F0–H7/L/G/WBA, nRF52840, SAM, i.MX RT, Renesas RA, SiFive FE310/FU540, LiteX/VexRiscv,
-  OpenTitan, Kendryte K210, `xtensa-sample-controller`, x86…). **No RP2040/RP2350 and no ESP32 models** (grep of
-  platforms/scripts: none). RP2040 exists only as the community repo matgla/Renode_RP2040 (not tested); for these two
-  chips use Espressif QEMU (ESP32-S3) and hardware (Pico 2 W), and Renode for host-portable logic on a supported MCU.
+- 1.17.1 portable: `renode --disable-gui --plain --console -e "mach create; machine LoadPlatformDescription
+  @platforms/cpus/nrf52840.repl; sysbus LoadELF @<url-or-path>; start; …; quit"`; to capture a UART headless,
+  `sysbus.uart0 CreateFileBackend @uart.log true` and `emulation RunFor "2"` before `quit`. Platforms: 122 `.repl`
+  in `platforms/cpus` (STM32F0–H7/L/G/WBA, nRF52840, SAM, i.MX RT, Renesas RA, SiFive FE310/FU540, LiteX/VexRiscv,
+  OpenTitan, Kendryte K210, `xtensa-sample-controller`, x86…). **No RP2040/RP2350 and no ESP32 platform.** 1.17.1
+  added Xtensa LX7 decoding tables and ESP32 models (USB-Serial/JTAG, timer group, RTC, SPI, S3 external memory;
+  `UART.ESP32_UART` existed before): a hand-written description with `CPU.Xtensa` `cpuType: "esp32s3"` and both
+  UARTs loads, but there is no ESP32 `.repl`, script or test (booting an ESP-IDF image was not tried). RP2040 exists
+  only as the community repo matgla/Renode_RP2040 (not tested); for these two chips use Espressif QEMU (ESP32-S3) and
+  hardware (Pico 2 W), and Renode for host-portable logic on a supported MCU.
+- 1.17.1 changes that can break existing setups: needs .NET 10 (the portable package bundles 10.0.15) and uses
+  Server GC (one nRF52840 on a 24-core host: 616 MiB RSS, 47 threads vs 532 MiB, 21 threads on 1.17.0;
+  `DOTNET_gcServer=0` → 568 MiB, 22 threads); `efr32mg24/26.repl` → `efr32xg24/26.repl`; per the changelog also:
+  JSON platform descriptions removed, `STM_USB` → `DesignWare_USB_OTG`, Cortex-M division-by-zero exceptions on by
+  default, fetches from unmapped memory raise a BusFault. Alternating 1.17.0 and 1.17.1 on one host discards the
+  shared download cache in `~/.config/renode` ("Cache will be rebuilt."; first run ~16 s instead of ~3 s).
 - `renode-test suite.robot` needs Python deps from `tests/requirements.txt` (robotframework==6.1, psutil, pyyaml,
-  telnetlib3, construct, pyelftools); otherwise "No module named 'psutil'". Pixi env: `python=3.12` + those as
-  `--pypi`; `pixi run …/renode-test x.robot` (2 tests in 2.7 s, writes `robot_output.xml`, `log.html`, and a
-  snapshot + log for failures). Keywords: `Execute Command`, `Create Terminal Tester ${UART} timeout=10
+  telnetlib3, construct, pyelftools; 1.17.1 adds docutils and pybgapi, only for `.robot.rst` and the SiLabs BLE
+  tests); otherwise "No module named 'psutil'". Pixi env: `python=3.12` + those as `--pypi`; `pixi run
+  …/renode-test x.robot` (2 tests in 2.9 s, writes `robot_output.xml`, `log.html`, and a snapshot + log for failures).
+- Fixtures, renamed in 1.17.1: `renode-test` adds `Renode Suite Setup`/`Renode Suite Teardown` and `Renode Test
+  Setup`/`Renode Test Teardown` when a suite declares none. Your own `Suite Setup` must call `Renode Suite Setup` (it
+  imports the Renode keyword library); test fixtures should call the test ones (reset emulation, per-test log,
+  snapshot on failure), as the stock tests do: `Test Setup  Run Keywords  Renode Test Setup  AND  Create Machine`. The
+  old names `Setup`, `Teardown`, `Test Setup`, `Test Teardown` still work on 1.17.1 but warn "Keyword
+  'renode-keywords.Setup' is deprecated. Use 'Renode Suite Setup'."; the new names fail on 1.17.0 ("No keyword with
+  name 'Renode Suite Setup' found"). The mcu-ready suite declares no fixtures and passes on both.
+- Keywords (unchanged in 1.17.1): `Execute Command`, `Create Terminal Tester ${UART} timeout=10
   defaultPauseEmulation=true` (**`timeout=`**, not `defaultTimeout=`: "Arguments types do not match"), `Start
   Emulation`, `Wait For Prompt On Uart`, `Write Line To Uart`, `Wait For Line On Uart`, `Create LED Tester`,
   `Assert LED State`; source `src/Renode/RobotFrameworkEngine/*Keywords.cs`, examples `tests/platforms/*.robot`.

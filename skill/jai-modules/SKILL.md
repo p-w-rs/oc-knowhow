@@ -218,7 +218,8 @@ reducer :: (acc: s32, v: s32, user: *void) -> s32 #c_call {           // callbac
 - Judge freshness: last commit vs CHANGELOG, compile its tests, grep for stale forms (`<<`, `#place`, `#must`, bare
   `Context`, `allocator =` arguments, `#foreign_library`, `value, found := table_find`, `initialized =`, x64 `#asm`
   without a CPU guard). 0.2.032's `initialized` → `initialize` rename broke uniform (`uniform-regex-source`),
-  jai-postgres and focus (`focus-editor-source`, GPL-3.0) the week it shipped: one-word fix in the vendored copy.
+  jai-postgres and focus (`focus-editor-source`, GPL-3.0) the week it shipped: rename that argument in your copy
+  (focus: 21 `New`/`NewArray` calls, then its release build works).
 - Current on 0.2.032: jaison, stubborn (`stubborn-source`), jai-simplehttp (`jai-simplehttp-source`, needs uniform),
   jai-xml (`jai-xml-source`; arm64 needs `(USE_SIMD_STRING_SEARCH = false)`), jai-csv (`jai-csv-source`), hyperserve
   (`hyperserve-source`, unfinished), jai-on-linux (`jai-on-linux-source`, Linux bindings). Find more: `awesome-jai`,

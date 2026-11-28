@@ -7,9 +7,9 @@ description: Profiling and memory allocators for C, C++ and Odin programs — Tr
 
 ## Ground truth first
 
-- Versions as of Nov 2026 (verify): **Tracy v0.15.0** (2026-11-05), **mimalloc v3.7.0** (2026-11-16; v2 line at v2.5.3),
-  **rpmalloc 2.0.1** (2026-07), **oskarnp/odin-tracy** at 307845d (written for Tracy 0.14.1). conda-forge has
-  `mimalloc 3.7.0` and `tracy-profiler 0.14.1` (GUI) but **not 0.15**, and no rpmalloc. Client and server must be the
+- Versions as of 27 Nov 2026 (verify): **Tracy v0.15.0** (2026-11-05), **mimalloc v3.7.1** (2026-11-24; v2 line at
+  v2.5.4), **rpmalloc 2.0.1** (2026-07), **oskarnp/odin-tracy** at 307845d (written for Tracy 0.14.1). conda-forge has
+  `mimalloc 3.7.1` and `tracy-profiler 0.14.1` (GUI) but **not 0.15**, and no rpmalloc. Client and server must be the
   **same Tracy version** (the protocol changes; NEWS says breakages aren't listed), so build the capture tools from the
   same tag as `TracyClient.cpp`.
 - Reference library: `tracy-source` (public/ client headers, manual/tracy.tex, NEWS), `mimalloc-source` (include/,
@@ -120,24 +120,31 @@ description: Profiling and memory allocators for C, C++ and Odin programs — Tr
   system binaries ignore it). conda-forge `mimalloc` gives the shared library for preload; cmake from source:
   `cmake -S mimalloc -B b -G Ninja -DCMAKE_BUILD_TYPE=Release -DMI_BUILD_TESTS=OFF` → `libmimalloc.{a,so|dylib}`
   (`-DMI_BUILD_SHARED=OFF -DMI_OVERRIDE=OFF` for an API-only static lib, as used in the benchmarks below). Version check
-  `mi_version()` → 30700 (`MI_MALLOC_VERSION`).
-- Env options (`MIMALLOC_<OPTION>`, or `mi_option_set` in code): `MIMALLOC_VERBOSE=1` (prints `v3.7.0, release` and
+  `mi_version()` → 30701 (`MI_MALLOC_VERSION`).
+- Env options (`MIMALLOC_<OPTION>`, or `mi_option_set` in code): `MIMALLOC_VERBOSE=1` (prints `v3.7.1, release` and
   every option at startup, a quick way to confirm the preload took effect), `MIMALLOC_SHOW_STATS=1` (stats at exit:
   per-size-bin table plus `process: user, system, faults, peak rss, peak commit`), `MIMALLOC_SHOW_ERRORS`,
   `MIMALLOC_PURGE_DELAY` (ms, **default 1000** in v3; 0 = return memory immediately, -1 = never), `MIMALLOC_ALLOW_LARGE_OS_PAGES`,
   `MIMALLOC_RESERVE_HUGE_OS_PAGES=N` (1 GiB pages), `MIMALLOC_ARENA_EAGER_COMMIT`. Env vars do nothing if the process
   doesn't actually load mimalloc. 3.7: a misspelled `MIMALLOC_*` prints "mimalloc: warning: … unknown environment
-  option(s) are ignored: MIMALLOC_FOO" on Linux (not printed on macOS in our test); secure builds (`-DMI_SECURE=…`,
-  `MI_MTE`, `MI_PAC`) restrict env options to show_stats/verbose/allow_thp by default (`MI_SECURE_ENV`).
+  option(s) are ignored: MIMALLOC_FOO" on Linux, but only together with `MIMALLOC_VERBOSE=1` or `MIMALLOC_SHOW_ERRORS=1`
+  (warnings are silent otherwise; nothing on macOS even then). Secure builds (`-DMI_SECURE=…`, `MI_MTE`, `MI_PAC`)
+  accept only show_stats/verbose/show_errors/allow_thp from the env (`MI_SECURE_ENV`; show_errors added in 3.7.1), and
+  every build ignores env options in elevated (setuid) processes (3.7.1 also detects file capabilities on Linux).
   In code: `mi_stats_print(NULL)`, `mi_collect(true)`, `mi_process_info(…)`. 3.7 also adds experimental arm64 memory
-  tagging (`-DMI_MTE=PREFER|ON`) and pointer authentication (`-DMI_PAC`); `-DMI_SECURE=MINIMAL` (3.6.1+) adds guard
-  pages around metadata for ~1% cost.
+  tagging (`-DMI_MTE=PREFER|ON`) and pointer authentication (`-DMI_PAC`). `-DMI_SECURE=BASIC` (3.7.1; `MINIMAL` is now a
+  deprecated alias) adds guard pages around metadata **and** encoded free lists with double-free detection ("usually
+  less than 5%" per the readme; 3.6.1–3.7.0 `MINIMAL` had guard pages and address randomization but no free-list
+  encoding, 1–3%).
 - Heaps (validated): `mi_heap_t *h = mi_heap_new(); p = mi_heap_malloc(h, n);` (also `_zalloc`, `_malloc_aligned`) →
   `mi_heap_destroy(h)` frees **all** its blocks at once (arena-like, per level/request) or `mi_heap_delete(h)`
   moves live blocks to the main heap. `mi_free` works on blocks from any heap and from any thread. v3 adds **theaps**
   (`mi_heap_theap`, `mi_theap_set_default`, `mi_theap_malloc`): thread-local heaps that are a little faster and can be
   made the default for plain `malloc` on that thread. Aligned API: `mi_malloc_aligned`, `mi_zalloc_aligned`,
-  `mi_realloc_aligned`, `mi_usable_size` (210 B request → 224 usable).
+  `mi_realloc_aligned`, `mi_usable_size` (210 B request → 224 usable). 3.7.1: `mi_umalloc(n, &usable)` and the other
+  `mi_u*` calls report the **usable** size (3.7.0: the block size), new `mi_allocated_size(p)` gives the block size,
+  plus `mi_uzalloc`, `mi_urealloc_aligned`. Identical in a release build; with padding (`-DMI_PADDING=ON`, implied by
+  debug, `MI_SECURE=ON|FULL` and Valgrind/ASan builds) 210 B → usable 210, block 224 (3.7.0 reported 224).
 
 ## rpmalloc (2.0)
 
@@ -182,6 +189,10 @@ cross-thread. Median of 3 runs, M ops/s in total (peak RSS).
   (Mac 8 thr 543 vs 543 M/s; Linux 24 thr 835–842 vs 790–829), ranking unchanged; Linux 24-thread peak RSS dropped
   to 259 MiB (3.6.1: 321–343). Absolute numbers drift ±30% between sessions with machine load (Mac 8 thr: all
   allocators ~30% higher than the table on 20 Nov), so always compare allocators within one session.
+- **mimalloc 3.7.1** (27 Nov 2026), 3.7.0 and 3.7.1 interleaved in one session: same speed and RSS within noise (Mac
+  8 thr 519 vs 503, 12 thr 504 vs 501 M/s; Linux 8 thr 624 vs 677, 24 thr 982 vs 993 M/s, RSS 259 vs 261 MiB);
+  ranking unchanged. 3.7.1 also fixes a v3 regression in transparent-huge-page use on Linux (`allow_thp`, default 2:
+  OS allocations get THP advice again "the same as v2").
 
 ## Measured: Odin allocators
 

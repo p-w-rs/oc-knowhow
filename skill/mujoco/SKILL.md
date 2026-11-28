@@ -9,8 +9,8 @@ Fast, accurate rigid-body + contact physics (DeepMind, Apache-2.0). Other simula
 material solvers), **isaac-sim** (RTX sensors, USD, Isaac Lab). Environments: **pixi**. Logging: **mcap**, **zenoh**.
 RL training around it: **ml-training**, **ml-tuning**; deploying policies: **ml-deploy**; custom kernels: **gpu-kernels**.
 The reference library holds `mujoco-source` (doc/*.rst, include/mujoco/*.h, python/mujoco, the official agent skills),
-`mujoco-warp-source` and `mujoco-menagerie`: `library_search` there for XML attributes, C signatures and Python APIs
-(e.g. `library_search query="option integrator implicitfast" sources=["mujoco-source"]`).
+`mujoco-warp-source`, `mujoco-menagerie` and `mujoco-playground-source`: `library_search` there for XML attributes,
+C signatures and Python APIs (e.g. `library_search query="option integrator implicitfast" sources=["mujoco-source"]`).
 
 ## 0. Ground truth first (as of 13 Nov 2026, verify)
 
@@ -21,7 +21,7 @@ The reference library holds `mujoco-source` (doc/*.rst, include/mujoco/*.h, pyth
 | GPU | `mujoco-warp` 4.0.1 (NVIDIA Warp, `import mujoco_warp as mjw`, officially released since 3.12), `mujoco-mjx` 4.0.1 (JAX; `impl="jax"` or `impl="warp"`; the `[warp]` extra pins `warp-lang==1.18.0`). |
 | conda-forge | `mujoco`/`mujoco-python` lag (3.16.0 on 13 Nov 2026): use PyPI. No OSMesa package. |
 | C | GitHub release `mujoco-4.0.1-linux-x86_64.tar.gz` (35 MB: `bin/simulate`, `testspeed`, `lib/libmujoco.so.4.0.1`, `include/mujoco/`). |
-| Models | Menagerie tag `v2026.11.3` (date tags), ~70 robots, per-robot licenses (most BSD/Apache/MIT). |
+| Models | Menagerie tag `v2026.11.4` (27 Nov 2026; date tags, no release notes), 72 model folders (new: `dyna_taku`, Dyna Robotics Taku mobile manipulator, not yet in the README gallery), per-model licenses (most BSD/Apache/MIT); `AGENTS.md` has the contributor/agent rules. |
 | Bundled docs | `pathlib.Path(mujoco.__file__).parent/"doc"` holds the whole manual (`XMLreference.rst`, `python.rst`, `mjx.rst`, `mjwarp/`) and **official agent skills** in `doc/skills/{python,spec_editing,rendering,accelerated,parity,studio}/SKILL.md`. grep them for `.. _Label:` anchors. |
 
 Check `doc/changelog.rst` for breaking changes before porting older code. 4.0 broke: `sidesite` tendon semantics,
@@ -177,7 +177,18 @@ bad = dw.overflow.numpy() != 0                           # per-world mjw.Overflo
   only 3 GB free, MJX-JAX at 4096 worlds failed with `cuSolver internal error gpusolverDnCreate`, MJX-Warp at 16384
   with `CUDA_ERROR_OUT_OF_MEMORY` and graph capture with `Warp CUDA error 2: out of memory`; all ran with the GPU free.
   `wp.get_device("cuda:0").free_memory` gives it from Python.
-- RL stacks: MuJoCo Playground (`playground` 1.0.1, MJX), mjlab (Isaac-Lab-style API on mujoco_warp + PyTorch).
+- RL stacks: mjlab (Isaac-Lab-style API on mujoco_warp + PyTorch) and **MuJoCo Playground** `playground` 1.1.0
+  (23 Nov 2026; Python 3.12–3.14, torch <2.16, pins `warp-lang` 1.18.0). Since 1.0 Playground runs on `reaf-sim`
+  (`reaf.simulation.torch`) + MJWarp + PyTorch + RSL-RL, not MJX: the JAX/MJX/Brax envs ended at PyPI 0.2.0 (source in
+  the repo's `rss2025/`). Envs: `SO101PickCube`, `TrossenPickCube`, `CartpoleBalance` (each also `…Vision`),
+  `CartpoleSwingUp`, `G1WholeBodyTracking`. 1.1.0 added the `playground` CLI (`train|play rsl_rl`, `deploy`,
+  `teleop`, `sysid`, `view_log`) and logs real episodes as plain JSON MCAP (older `tf.train.Example` logs no longer
+  load); reaf-sim 1.1.0 added step-based curricula (`curriculum.Stages`, `Term.curriculum(...)`; read, not run).
+  Tested on ubuntu-laptop (RTX PRO 2000 8 GB): Pixi `python = "3.14.*"` + PyPI `playground = { version = "==1.1.0",
+  extras = ["rl"] }` (41 s, 6.4 GB; the PyPI torch 2.15.0 wheel is a cu132 build); `pixi run playground train rsl_rl
+  --env=SO101PickCube --device=cpu --overrides='{"nworld": 64, "max_iterations": 5}'` ran in 46 s; on the GPU with
+  nworld 2048 ~130 k steps/s, 1.4 GB VRAM. Unknown `--overrides` keys raise `KeyError` with a hint (read in
+  `train.py`); the "Agent config" it logs is printed before the overrides are applied.
 
 ## 6. C API and Odin (tested)
 

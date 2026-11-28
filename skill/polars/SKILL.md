@@ -1,6 +1,6 @@
 ---
 name: polars
-description: Polars 2.x for fast dataframes in Python (and the Rust crate) — eager vs lazy (scan_parquet/scan_ipc/scan_csv, collect, the streaming engine that is now the lazy default, out-of-core spilling, sink_parquet and PartitionBy), expressions (select/with_columns/filter/group_by/agg, when/then/otherwise, over windows, rolling, group_by_dynamic, join and join_asof for sensor alignment, pivot/unpivot, list/struct/str/dt namespaces), query plans (explain, predicate/projection pushdown, QueryOptFlags), performance rules (no map_elements, Enum/Categorical, streaming for larger-than-RAM), Arrow/NumPy/pandas/PyTorch interop, MCAP robotics logs into Polars (per-topic rates, gaps, latency), quick plots via gnuplot, the GPU engine (cudf-polars, version pin, fallbacks), pl.SQLContext, and the 1.x → 2.0 breaking changes and pitfalls (row order, null vs NaN, casts, sorted flags). Load before writing or reviewing Polars code or analysing tabular/log data in Python.
+description: Polars 2.x for fast dataframes in Python (and the Rust crate) — eager vs lazy (scan_parquet/scan_ipc/scan_csv, collect, the streaming engine that is now the lazy default, out-of-core spilling and joins, sink_parquet and PartitionBy), expressions (select/with_columns/filter/group_by/agg, when/then/otherwise, over windows, rolling, group_by_dynamic, join and join_asof for sensor alignment, pivot/unpivot, list/struct/str/dt namespaces), query plans (explain, predicate/projection pushdown, QueryOptFlags), performance rules (no map_elements, Enum/Categorical, streaming for larger-than-RAM), Arrow/NumPy/pandas/PyTorch interop, MCAP robotics logs into Polars (per-topic rates, gaps, latency), quick plots via gnuplot, the GPU engine (cudf-polars, version pin, fallbacks), pl.SQLContext, and the 1.x → 2.x breaking changes and pitfalls (row order, null vs NaN, casts, sorted flags, 2.2 str.find offsets). Load before writing or reviewing Polars code or analysing tabular/log data in Python.
 ---
 
 # Polars
@@ -8,20 +8,19 @@ description: Polars 2.x for fast dataframes in Python (and the Rust crate) — e
 Polars is a Rust dataframe engine on the Arrow memory format (**arrow** skill: buffers, Parquet, IPC, zero-copy).
 Python only through **pixi** (`pixi add polars`). Robotics logs: **mcap**; plots: **gnuplot**; statistics on the
 results: **stats-inference**; training data: **ml-data**. Reference library (proposed): `polars-guide-source`
-(user guide + upgrade notes at `py-2.1.0`): `library_search query="join_asof tolerance" sources=["polars-guide-source"]`.
+(user guide + upgrade notes at `py-2.2.0`): `library_search query="join_asof tolerance" sources=["polars-guide-source"]`.
 API reference: https://docs.pola.rs/api/python/stable/ (Rust: https://docs.rs/polars).
 
-## 0. Versions (13 Nov 2026, verify)
+## 0. Versions (27 Nov 2026, verify)
 
-- **Python Polars 2.1.0** (2026-10-25; 2.0.0 on 2026-10-06). conda-forge `polars` 2.1.0. Rust crate **`polars`
-  0.55.2** (2026-08-06): the crate is versioned separately and lags the Python release.
+- **Python Polars 2.2.0** (2026-11-24; 2.1.0 2026-10-25, 2.0.0 2026-10-06). conda-forge `polars` 2.2.0. Rust crate
+  **`polars` 0.55.2** (2026-08-06): the crate is versioned separately and lags the Python release.
 - **cudf-polars-cu13 / -cu12 26.10.2** (latest stable; PyPI, conda channel `rapidsai`) requires
-  **`polars>=1.35,<1.45`**. The **27.02 nightlies** (`27.2.0a56`, index
-  `https://pypi.anaconda.org/rapidsai-wheels-nightly/simple`, conda `rapidsai-nightly`) require `polars>=2.0,<2.2`
-  and worked with Polars 2.1.0. Until 27.02 is released: a stable env pinned to `polars==1.44.2`, or the nightly (§9).
-- Read the upgrade guide when porting: `docs/source/releases/upgrade/2.md` in the repo
-  (https://docs.pola.rs/releases/upgrade/2/). Removed APIs raise `AttributeRemovedError`/`ArgumentRemovedError`
-  with the replacement in the message.
+  **`polars>=1.35,<1.45`**; the **27.02 nightlies** (`27.2.0a236` on 27 Nov, index
+  `https://pypi.anaconda.org/rapidsai-wheels-nightly/simple`, conda `rapidsai-nightly`; repo now `NVIDIA/cudf`)
+  still require `polars>=2.0,<2.2`: **no GPU engine for 2.2 yet** — pin 1.44.2 (stable) or 2.1.0 (nightly), §9.
+- Porting: `docs/source/releases/upgrade/2.md` (https://docs.pola.rs/releases/upgrade/2/); removed APIs raise
+  `AttributeRemovedError`/`ArgumentRemovedError` naming the replacement. Minor releases break things too (2.2: §1).
 
 ## 1. Polars 2.0 changes that silently change results
 
@@ -39,6 +38,12 @@ API reference: https://docs.pola.rs/api/python/stable/ (Rust: https://docs.rs/po
   protocol (use the Arrow PyCapsule interface or `to_arrow()`). CSV auto names start at `column_0`.
 - Categoricals: global, always lexically ordered; `pl.StringCache()` still works but warns
   "the string cache has been replaced by pl.Categories" — you don't need it any more.
+- **2.2** (tested against 2.1.0): `str.find`/`str.find_many` return **character** offsets (were bytes: `"naïve
+  café".str.find("é")` 9, was 10), so they work with `str.slice` and Python slicing; byte offsets: new
+  `bin.find`/`bin.find_many` (unstable). Scalar-only arguments are checked at plan time: `col("a").head(col("n")
+  .head(1))` or `top_k(pl.lit(pl.Series([2])))` raise `ShapeError` (naming the argument and suggesting `.item()`,
+  `.first()` or `.implode()`) already at `explain()`; 2.1 accepted them. SQL `DELETE` in a `SQLContext` now
+  changes the registered table (count 3 → 2 afterwards; was unchanged).
 
 ## 2. Eager vs lazy
 
@@ -93,7 +98,8 @@ import polars.selectors as cs; df.select(cs.numeric(), cs.by_name("ts"))
   `fill_nan(None)` turns NaN into null so null-aware aggregations skip it. `is_null` vs `is_nan`; `fill_null`
   (`strategy="forward"`), `interpolate()` (doesn't extrapolate: trailing nulls stay null).
 - Casts are strict: `pl.Series(["1","x"]).cast(pl.Int64)` raises `InvalidOperationError`; `strict=False` gives
-  null. Integer ↔ categorical casts are removed (`.cat.to(Enum)`, `.cat.physical()`).
+  null. Integer ↔ categorical casts are removed (`.cat.to(Enum)`, `.cat.physical()`). Struct → Struct needs the
+  same field names in the same order; `strict=False` matches fields by name (missing → null, extra dropped).
 
 ## 4. Time series and sensor alignment (robotics)
 
@@ -133,8 +139,16 @@ up = df.upsample("ts", every="5ms").with_columns(pl.col("x").interpolate())  # r
    5.8 s, 9.8 GB (out-of-core sort). Polars 1.44 streaming did the same query in 1.7 s but 12 GB.
 5. Out-of-core (2.0+, on by default): spills when memory passes `POLARS_OOC_MEMORY_BUDGET_FRACTION` (0.8 of RAM)
    or `POLARS_OOC_MEMORY_BUDGET_MB`; disk cap `POLARS_OOC_DISK_BUDGET_MB` (64000); spill dir `POLARS_OOC_SPILL_DIR`
-   (put it on fast local NVMe); `POLARS_OOMKILL_THRESHOLD_MB` aborts cleanly instead of being OOM-killed.
-   (Names from `crates/polars-config/src/lib.rs` at py-2.1.0; check there for new ones.)
+   (default `/var/tmp/polars-$USER/spill` on Linux; put it on fast local NVMe); `POLARS_OOMKILL_THRESHOLD_MB`
+   aborts cleanly instead of being OOM-killed. **2.2 joins out of core**: a streaming equi-join whose build side
+   exceeds its memory grant partitions both sides by key hash and spills them. 100M × 100M rows (unique build keys,
+   12 threads): budget 1000 MB → 4.2 s, **2.0 GB peak RSS**, 2.3 GB spilled (2.1.0: 6.0 s, 5.8 GB); default budget
+   2.2 s, 5.6 GB (2.1.0: 7.7 GB); inner and left joins alike. Still in memory: semi/anti joins (semi: 4.9 GB) and
+   joins whose `maintain_order` matters to the result (6.4 GB). New in 2.2: `POLARS_OOC_MEMORY_GRANT_FRACTION` (0.75 of
+   the budget for join/group-by hash tables), `POLARS_OOC_DIRTY_LIMIT_FRACTION` (0.8 of RAM; replaces the removed
+   `POLARS_OOC_PRESSURE_DECAY*`); `POLARS_OOC_LOG_METRICS=1` (already in 2.1) prints spill/prefetch stats per
+   operator to stderr.
+   (Names from `crates/polars-config/src/lib.rs` at py-2.2.0; check there for new ones.)
 6. Threads: `pl.thread_pool_size()` (all cores); set `POLARS_MAX_THREADS` **before import** when sharing a
    machine or inside DataLoader workers (one Polars pool per worker otherwise oversubscribes).
 7. Parquet out: `write_parquet(compression="zstd")` is fast (50M rows: 0.62 s, 1275 MB) because it doesn't
@@ -200,7 +214,7 @@ python = "3.12.*"
 [feature.stable.pypi-dependencies]          # RAPIDS 26.10: Polars 1.x only
 polars = "==1.44.2"
 cudf-polars-cu13 = "==26.10.2"
-[feature.nightly.pypi-dependencies]         # RAPIDS 27.02 nightly: Polars 2.x
+[feature.nightly.pypi-dependencies]         # RAPIDS 27.02 nightly: Polars >=2.0,<2.2 (2.2 not yet)
 polars = "==2.1.0"
 cudf-polars-cu13 = "==27.2.0a56.post261114022422"
 [feature.nightly.pypi-options]
@@ -211,7 +225,8 @@ index-strategy = "unsafe-best-match"
 stable = ["stable"]
 nightly = ["nightly"]
 ```
-Both installed in < 3 min. The nightly's results matched the CPU engine (floats to ~1e-15).
+Both installed in < 3 min (13 Nov; nightlies roll over daily, so pin the build that worked). The nightly's
+results matched the CPU engine (floats to ~1e-15). Not rerun with Polars 2.2: no cudf-polars build allows it yet.
 
 **Engine options** (`pl.GPUEngine(device=0, memory_resource=…, raise_on_fail=…, executor=…, executor_options={…})`):
 - `executor` defaults to **`"streaming"`** (cudf-polars' partitioned executor: `max_rows_per_partition` 1M,
@@ -265,7 +280,9 @@ won. Stable 26.10 + Polars 1.44 at 200M: similar (sort 1.34 in-mem, joins 0.59).
 
 - `pl.SQLContext(log=lf).execute("SELECT topic, COUNT(*) AS n, AVG(x) FROM log WHERE q > 50 GROUP BY topic")`
   returns a LazyFrame (resolved at `collect()` in 2.x: syntax errors show up there); `df.sql("… FROM self")`;
-  `pl.sql(query)` sees frames in scope. Exact numeric literals are `Decimal` in 2.x (`1.5e0` for float).
+  `pl.sql(query)` sees frames in scope. Exact numeric literals are `Decimal` in 2.x (`1.5e0` for float). 2.2 adds
+  `INSERT INTO t VALUES …`, `UPDATE`, and a `DELETE` that changes registered tables (tested; `DELETE FROM
+  (subquery)` → `SQLInterfaceError: DELETE requires a registered table`), plus `PIVOT`, `COPY`, `CREATE VIEW`, macros.
 - Rust (`polars = { version = "0.55.2", features = ["lazy", "parquet", "temporal", "dtype-categorical"] }`):
   `LazyFrame::scan_parquet(PlRefPath::new("f.parquet"), Default::default())?.filter(col("t").gt(lit(5)))
   .group_by([(col("t") % lit(4)).alias("k")]).agg([col("x").mean(), col("x").null_count(), len()])
@@ -280,6 +297,8 @@ won. Stable 26.10 + Polars 1.44 at 200M: similar (sort 1.34 in-mem, joins 0.59).
 - Row order after `group_by`/`join`/`unique` in lazy queries (streaming default): sort or `maintain_order`.
 - Null vs NaN; `fill_nan(None)` before aggregations on floats that can be NaN.
 - `String → Date` cast removed: `str.to_date(format)`. Mixed string/number arithmetic raises in 2.1.
+- Upgrading to 2.2: `str.find` offsets change on non-ASCII text (chars, not bytes); per-row values passed where a
+  scalar belongs now raise `ShapeError` at planning; SQL `DELETE` mutates the `SQLContext` table.
 - Asof joins: both sides sorted, same time unit, use `tolerance`, check `null_count()` of the joined columns.
 - `group_by_dynamic`/`rolling` need sorted index columns (sort per group first when using `group_by=`).
 - Building frames row by row (`vstack` in a loop, `pl.concat` of 1-row frames) is quadratic: collect lists first.

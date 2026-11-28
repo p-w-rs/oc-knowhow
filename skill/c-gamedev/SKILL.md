@@ -9,8 +9,9 @@ description: Game and simulation building blocks in C (and from Odin) — flecs 
 
 - Versions as of Nov 2026 (verify with `git ls-remote --tags`; sort with `sort -V`): **flecs v4.2.0** (2026-11-04),
   **JoltPhysics v5.6.0** (2026-07), **JoltC** (SecondHalfGames, untagged; commit 429235de wraps Jolt 5.6.0 as a git
-  submodule). **Jolt v5.7.0** (2026-11-14) exists, but JoltC had not moved to it as of 20 Nov 2026 (latest commit is
-  still 429235de "Update to Jolt Physics 5.6.0"), so this skill and its references stay on 5.6.0: pin the Jolt
+  submodule). **Jolt v5.7.0** (2026-11-14) exists, but JoltC had not moved to it as of 27 Nov 2026 (`main` is still
+  429235de of 9 Nov, right after 87f129e9 "Update to Jolt Physics 5.6.0"; its submodule is e77f1755 = tag v5.6.0),
+  so this skill and its references stay on 5.6.0: pin the Jolt
   submodule to the commit JoltC records, since its C structs mirror that version. 5.7 changes to expect
   (Docs/APIChanges.md): `PhysicsSettings::mDeterministicSimulation` removed (always deterministic), optional 64-bit
   `ObjectLayer`, `JPH_USE_STD_VECTOR` removed, `JPH_NO_DEBUG` replaced by `JPH_DEBUG`, new virtual

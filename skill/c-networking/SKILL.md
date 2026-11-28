@@ -7,8 +7,9 @@ description: Real-time game/simulation networking and utilities in C (and from O
 
 ## Ground truth first
 
-- Versions as of Nov 2026 (verify with `git ls-remote --tags`): **zpl-c/enet v2.7.0** (2026-06, `ENET_VERSION_MAJOR 2`),
-  upstream **lsalzman/enet v1.3.18**, **librg v7.4.1** (2026-11-20; security fix for an
+- Versions as of 27 Nov 2026 (verify with `git ls-remote --tags`): **zpl-c/enet v2.7.2** (2026-11-24, `ENET_VERSION_PATCH 2`;
+  2.7.1 fixed macOS hosts bound to one IPv4 address, below, and undefined-behaviour shifts in the timeout check and CRC;
+  2.7.2 only touches CMake/CI), upstream **lsalzman/enet v1.3.18**, **librg v7.4.1** (2026-11-20; security fix for an
   out-of-bounds read in `librg_world_read`, GHSA-phfx-f87r-6j2c — **update from 7.4.0** if you read packets from peers), **zpl 19.5.0**
   (2024-08; tag `19.5.0` — note `git ls-remote --tags | sort -V` lists the old `v9.8.5` last because of the `v` prefix; take the single header from GitHub Releases). Use the release assets:
   `https://github.com/zpl-c/{enet,librg,zpl}/releases/download/<tag>/{enet,librg,zpl}.h`. In the zpl repo,
@@ -35,6 +36,13 @@ description: Real-time game/simulation networking and utilities in C (and from O
   `ENET_FEATURE_ADDRESS_MAPPING` is defined (then `_new`: getaddrinfo `AF_UNSPEC`); `::1` and `localhost` both worked.
   **The fork and upstream 1.3.18 speak the same wire protocol**: an Odin vendor:ENet (upstream) client exchanged
   reliable and unsequenced packets with a zpl-fork server.
+- **macOS, ≤ 2.7.0**: a server bound to one IPv4 address (`enet_address_set_host(&a, "127.0.0.1")` → `::ffff:127.0.0.1`)
+  never completes a handshake (XNU turns the socket into a plain IPv4 one and the sender address was misread; validated
+  with 127.0.0.1: client "connect failed"). 2.7.1+ fixes it; `ENET_HOST_ANY` and `::1` always worked, and on Linux
+  both versions passed.
+  CMake building both `ENET_STATIC` and `ENET_SHARED` (2.7.2 `CMakeLists.txt`, not tested on Windows): with
+  MSVC/clang-cl the static library is named `enet_static.lib` so it no longer overwrites the DLL's import library
+  `enet.lib`; elsewhere it stays `libenet.a`.
 - Core loop (validated):
   ```c
   enet_initialize(); atexit(enet_deinitialize);

@@ -1,6 +1,6 @@
 ---
 name: rerun
-description: Log, view and query robot data with Rerun (rerun.io, SDK 0.43) — data model (entities and entity paths, archetypes vs components, timelines with set_time/send_columns, static data, named transform frames), logging Points3D, Boxes3D, Transform3D, Pinhole, Image/DepthImage/EncodedImage, Scalars/SeriesLines, LineStrips3D, TextLog, Tensor, blueprints from code (rerun.blueprint views and layout), sinks (save .rrd, spawn, connect_grpc, serve_grpc, web viewer), the rerun CLI (rrd print/stats/verify/optimize/merge/filter/compare, mcap info/check/convert), reading recordings back as Arrow/DataFusion/Polars dataframes (RrdReader, local catalog server + SQL), MCAP import (ROS 2 and Foxglove protobuf to archetypes, reflection of custom protobuf/ros2msg), a tested Zenoh→Rerun bridge, headless screenshots for agents, memory limits and micro-batching. Load before logging to, viewing or querying Rerun data.
+description: Log, view and query robot data with Rerun (rerun.io, SDK 0.44) — data model (entities and entity paths, archetypes vs components, timelines with set_time/send_columns, static data, named transform frames), logging Points3D, Boxes3D, Transform3D, Pinhole, Image/DepthImage/EncodedImage, Scalars/SeriesLines, LineStrips3D, TextLog, Tensor, blueprints from code (rerun.blueprint views and layout), sinks (save .rrd, spawn, connect_grpc, serve_grpc, web viewer), the rerun CLI (rrd print/stats/verify/optimize/merge/filter/compare, mcap info/check/convert, rerun mcp for agents), reading recordings back as Arrow/DataFusion/Polars dataframes (RrdReader, local catalog server + SQL, read_arrow streaming), MCAP import (ROS 2 and Foxglove protobuf to archetypes, reflection of custom protobuf/ros2msg), URDF/MJCF models, a tested Zenoh→Rerun bridge, headless screenshots for agents, memory limits and micro-batching. Load before logging to, viewing or querying Rerun data.
 ---
 
 # Rerun
@@ -12,23 +12,24 @@ in **robot-serialization**. Environments: **pixi**. Plots for papers: **gnuplot*
 `rerun-python-source` (the `rerun_py/rerun_sdk/rerun` package with type hints, `docs/content`, `docs/snippets/all`,
 small `examples/python`) and the `rerun-docs` link: `library_search` there for exact signatures before writing code.
 
-## 0. Versions (as of 13 Nov 2026, verify at https://github.com/rerun-io/rerun/releases)
+## 0. Versions (as of 27 Nov 2026, verify at https://github.com/rerun-io/rerun/releases)
 
-- **0.43.2** (13 Nov 2026; 0.43.0 11 Nov, 0.42.0 4 Nov). Releases come every 1–2 weeks and the API moves:
+- **0.44.0** (25 Nov 2026; 0.43.2 13 Nov, 0.42.0 4 Nov). Releases come every 1–2 weeks and the API moves:
   check `rr.__version__` and read the changelog (https://rerun.io/docs/changelog) before trusting older code.
   The SDK, viewer and `.rrd` must have the same minor version; `rerun rrd migrate` upgrades old files.
-- Python: PyPI `rerun-sdk` (abi3 wheels, bundles the `rerun` CLI/viewer), conda-forge `rerun-sdk`. **conda-forge
-  lagged on linux-64** (0.43.1 while osx-arm64 had 0.43.2): pin the version and use `pixi add --pypi
-  "rerun-sdk[catalog]==0.43.2"` when they differ. Rust: crate `rerun` 0.43.2. C++: CMake `FetchContent` of
-  `https://github.com/rerun-io/rerun/releases/latest/download/rerun_cpp_sdk.zip` (pin `/download/0.43.2/`), conda
-  `librerun-sdk`, or vcpkg `rerun-sdk`. The CLI alone: release assets `rerun-cli-0.43.2-<target>`.
+- Python: PyPI `rerun-sdk` (abi3 wheels, bundles the `rerun` CLI/viewer), conda-forge `rerun-sdk` (0.44.0 on
+  osx-arm64 and linux-64; linux-64 has lagged a patch release before: pin, else `pixi add --pypi
+  "rerun-sdk[catalog]==0.44.0"`). **Rust: 0.44.0 is not on crates.io** (unreleased egui; crate stays 0.43.2).
+  C++: CMake `FetchContent` of `https://github.com/rerun-io/rerun/releases/latest/download/rerun_cpp_sdk.zip` (pin
+  `/download/0.44.0/`), conda `librerun-sdk`, or vcpkg `rerun-sdk`. CLI alone: assets `rerun-cli-0.44.0-<target>`.
 - **Querying needs DataFusion**, which is *not* a default dependency: `ModuleNotFoundError: No module named
-  'datafusion'` from `store.reader()`. The `catalog` extra pins `datafusion==54.0.0`; with Pixi either `pixi add
-  "datafusion==54.0.0"` (worked on osx-arm64) or the PyPI extra (conda-forge's 54.0.0 builds conflicted with
-  Python 3.13 + libprotobuf 7 on linux-64).
+  'datafusion'` from `store.reader()`. The `catalog` extra pins `datafusion==54.0.0`; `pixi add
+  "datafusion==54.0.0"` worked with Python 3.13 on osx-arm64, but conda-forge's linux-64 54.0.0 builds need
+  Python 3.11/3.14 (or libprotobuf 6.33): use `python = "3.14.*"` there, or the PyPI extra.
 - **`rr.dataframe.load_recording(...).view(...).select()` is gone** (pre-0.30 API in blog posts and model memory).
   Use `rerun.chunk.RrdReader` or `rr.server.Server` (§6).
-- The SDK sends anonymous usage analytics by default: `rerun analytics disable` (once per machine) to opt out.
+- Anonymous usage analytics are on by default: `rerun analytics disable` (once per machine; `rerun --web-viewer`
+  follows it). Since 0.44 also the npm `@rerun-io/web-viewer`: `{ analytics: "off" }` or `&analytics=off`.
 
 ## 1. Data model
 
@@ -51,7 +52,7 @@ small `examples/python`) and the `rerun-docs` link: `library_search` there for e
   keyed by `child_frame`, logging another parent replaces it). Each entity has an implicit frame `tf#/<path>`.
   `rr.ViewCoordinates.RIGHT_HAND_Z_UP` (ROS convention) on the root, `RDF` for camera optical frames.
 
-## 2. Logging a robot (tested: `robot.py`, 100 frames, 1.4 MB `.rrd`, 2 s)
+## 2. Logging a robot (tested: `robot.py`, 100 frames, 1.4 MB `.rrd`, 0.7 s with 0.44.0)
 
 ```python
 import numpy as np, rerun as rr, rerun.blueprint as rrb
@@ -77,7 +78,11 @@ rr.send_columns("telemetry/speed", indexes=[rr.TimeColumn("frame", sequence=np.a
 ```
 Other archetypes: `Arrows3D`, `Mesh3D`, `Asset3D` (glb/obj/stl), `Ellipsoids3D`, `Capsules3D`, `InstancePoses3D`,
 `SegmentationImage`, `VideoStream`/`AssetVideo` (H.264/AV1: far smaller than per-frame images), `GeoPoints`,
-`GridMap`, `TextDocument`, `BarChart`, `AnyValues` (arbitrary columns), URDF via `rr.log_file_from_path("robot.urdf")`.
+`GridMap`, `TextDocument`, `BarChart`, `AnyValues` (arbitrary columns). Robot models: URDF and (0.44) MuJoCo MJCF
+(`.mjcf`/`<mujoco>` `.xml`) via `rr.log_file_from_path(path or [paths])`: tested, bodies became frames on
+`/tf_static` plus `Cylinders3D`/`Capsules3D`/`Boxes3D`; `rerun.urdf.UrdfTree`/`rerun.mjcf.MjcfTree` compute joint
+transforms. 0.44: `UrdfTree.from_file_path(entity_path_prefix="a/b")` = two path parts now (old behaviour:
+`rr.escape_entity_path_part`); `log_urdf_to_recording` → `log_to_recording`.
 Prefer `EncodedImage`/`VideoStream` over raw `Image` for cameras: raw RGB at 30 Hz fills RAM in minutes.
 
 ## 3. Blueprints (layout from code)
@@ -94,10 +99,12 @@ blueprint = rrb.Blueprint(
 rr.send_blueprint(blueprint)          # or default_blueprint= on init/save/spawn/connect_grpc
 ```
 Views: `Spatial3DView`, `Spatial2DView`, `TimeSeriesView`, `TextLogView`, `TensorView`, `DataframeView`,
-`BarChartView`, `MapView`, `GraphView`, `TextDocumentView`, `StateTimelineView`; containers `Horizontal`,
-`Vertical`, `Grid`, `Tabs`; `contents=["+ /world/**", "- /world/debug/**"]` filters entities. `rr.save(...,
-default_blueprint=)` stores it in the `.rrd` (verified: the CLI screenshot showed exactly this layout). A
-blueprint alone can be saved as `.rbl` (`blueprint.save("app_id", "layout.rbl")`) and opened next to data.
+`BarChartView`, `MapView`, `GraphView`, `TextDocumentView`, `StateTimelineView`, `AudioView`, `RawDataView`;
+containers `Horizontal`, `Vertical`, `Grid`, `Tabs`; `contents=["+ /world/**", "- /world/debug/**"]` filters
+entities. `rr.save(..., default_blueprint=)` stores it in the `.rrd` (verified: the CLI screenshot showed exactly
+this layout). A blueprint alone can be saved as `.rbl` (`blueprint.save("app_id", "layout.rbl")`). Catalog datasets
+hold several: 0.44 `ds.register_blueprint(uri, "overview", set_default=False)` returns a
+`rerun.catalog.RegisteredBlueprint` (`.id`, `.name`, `.kind`; was an ID string); the viewer lists them in a dropdown.
 
 ## 4. Sinks, viewers, ports
 
@@ -110,26 +117,29 @@ blueprint alone can be saved as `.rbl` (`blueprint.save("app_id", "layout.rbl")`
 | Web viewer for a file | `rerun --web-viewer --web-viewer-port 9090 --port 9877 --bind 127.0.0.1 robot.rrd` → open `http://127.0.0.1:9090/?url=rerun%2Bhttp%3A%2F%2F127.0.0.1%3A9877%2Fproxy` |
 | Native viewer for a file | `rerun robot.rrd` (also `.mcap`, images, meshes, URLs) |
 
-The web viewer is a ~70 MB wasm download, uses WebGPU (`&renderer=webgl` URL parameter or `--renderer webgl` as
-fallback) and is capped at 2.5 GB RAM. `--bind 0.0.0.0` (default) exposes the gRPC port to the LAN; firewalls
-(powerslabs' drops inbound LAN ports) need an SSH tunnel: `ssh -L 9090:127.0.0.1:9090 -L 9877:127.0.0.1:9877 host`.
+The web viewer is a ~70 MB wasm download, uses WebGPU in Chromium and (0.44) WebGL elsewhere (force it with
+`&renderer=webgl` or `--renderer webgl`), capped at 2.5 GB RAM. `--bind 0.0.0.0` (default) exposes the gRPC port to
+the LAN; firewalls (powerslabs' drops inbound LAN ports) need an SSH tunnel: `ssh -L 9090:127.0.0.1:9090 -L 9877:127.0.0.1:9877 host`.
 Flush before exit: `rr.disconnect()` or let the process end normally (the SDK flushes at exit; `kill -9` loses the
 open batch). Micro-batching: `RERUN_FLUSH_TICK_SECS` (0.2 s for files, 8 ms for network sinks),
 `RERUN_FLUSH_NUM_BYTES` (2 MiB).
 
-## 5. CLI (0.43.2, tested)
+## 5. CLI (0.44.0, tested)
 
 ```sh
 rerun rrd verify robot.rrd            # "1 file verified without error."
 rerun rrd stats robot.rrd             # chunks, rows, per-entity chunk counts (--no-decode: fast, transport level)
 rerun rrd print robot.rrd [-v|-vv|-vvv]   # store info + one line per chunk with entity and columns
-rerun rrd optimize robot.rrd -o opt.rrd   # compaction: 39 → 22 chunks, −4.9 % size here (--max-rows, --max-size)
+rerun rrd optimize in.rrd -o opt.rrd  # 538 → 32 chunks, 2.3 → 1.4 MB (logged with RERUN_FLUSH_NUM_ROWS=1); --profile
+                                      # object-store (default, ≤ 65 536 rows / 2 MiB per chunk) | live; --max-rows/-size
 rerun rrd merge a.rrd b.rrd -o all.rrd
 rerun rrd filter robot.rrd --drop-entity /world/robot/camera/rgb --drop-timeline log_time -o small.rrd
-rerun rrd compare a.rrd b.rrd         # strict: failed "Number of Chunks does not match: '27' vs. '22'" after optimize
+rerun rrd compare a.rrd b.rrd         # compares chunk layout too: "Number of Chunks does not match: '526' vs. '20'"
+                                      # after optimize (also with --unordered); NaN == NaN since 0.44
 rerun rrd split | route | migrate     # split on a timeline, rewrite stream metadata, upgrade old files
 rerun mcap info|check|convert in.mcap # §7
-rerun viewer-mcp                      # MCP server that drives a running viewer (agents)
+rerun mcp                             # MCP server for agents (§9); was `rerun viewer-mcp` before 0.44
+rerun servers list|add <url>|remove <url>   # catalog servers shared by the viewer, the CLI and `rerun mcp`
 ```
 `rrd` commands write to stdout without `-o`. `rerun --help` lists every viewer flag (`--memory-limit`,
 `--server-memory-limit`, `--save`, `--port auto`/`--new`, `--threads`, `--hide-welcome-screen`).
@@ -144,9 +154,9 @@ sel = df.select("frame", "/telemetry/speed:Scalars:scalars", "/world/robot:Trans
 pdf = pl.from_arrow(sel.to_arrow_table())               # polars; .to_pandas() also works
 speed = pdf["/telemetry/speed:Scalars:scalars"].list.first()   # cells are lists
 ```
-Results: 100 rows, the 1000-point cloud of frame 50 came back intact, values matched. Warm timings on an M2 Max:
-`collect()` 11 ms, query + Arrow 34 ms; `import datafusion` 0.5 s; the **first** run on the Mac took 14.5 s (cold
-imports/caches), 0.2 s on Linux.
+Results: 100 rows, the 1000-point cloud of frame 50 came back intact, values matched (0.43.2 and 0.44.0). Warm on
+an M2 Max (0.44.0): `collect()` 7.6 ms, a 2-column query + Arrow 2.8 ms; `import datafusion` 0.5 s; the first
+query in a process 0.36 s (Mac) / 0.13 s (Linux). A brand-new install once took 14.5 s on the Mac (cold caches).
 
 Catalog server (many recordings, SQL, the same API as Rerun's hosted catalog):
 ```python
@@ -156,22 +166,24 @@ with rr.server.Server(host="127.0.0.1", datasets={"robot": ["robot.rrd"]}) as se
     client.ctx.register_view("tele", ds.filter_contents("/telemetry/**").reader(index="sim_time"))
     q = client.ctx.sql('SELECT sim_time, "/telemetry/speed:Scalars:scalars"[1] AS speed FROM tele LIMIT 3')
     latest = ds.reader(index="frame", fill_latest_at=True)   # fill nulls with latest-at values, like the viewer
+    for batch in ds.filter_contents("/telemetry/**").read_arrow(index="frame"): ...  # 0.44: pyarrow RecordBatchReader
 ```
 Quote column names in SQL; list indices start at 1. Each recording is a *segment* (`rerun_segment_id` column).
 Printing a dataframe with image/video columns prints every byte: `select()` first. Rust: `rerun::dataframe::QueryEngine`.
 
 ## 7. MCAP import (tested with a 7-channel file from robot-serialization)
 
-`rerun file.mcap` opens it directly; `rerun mcap convert in.mcap -o out.rrd` (0.03 s for 270 messages) writes an
-`.rrd`. Options: `-d/--decoder` (attachments, foxglove, metadata, protobuf, raw, recording_info, ros2_reflection,
-ros2msg, schema, stats, urdf), `-y/-n` topic regexes (RE2), `--start-time/--end-time`, `--recover` (no footer),
+`rerun file.mcap` opens it directly; `rerun mcap convert in.mcap -o out.rrd --application-id robot` (0.05 s for 270
+messages; without the id it warns `Application ID requires migration to an entry name`) writes an `.rrd`. Options:
+`-d/--decoder` (attachments, foxglove, metadata, protobuf, raw, recording_info, ros2_reflection, ros2msg, schema,
+stats, urdf), `-y/-n` topic regexes (RE2), `--start-time/--end-time`, `--recover` (no footer),
 `--timestamp-offset-ns`, `--timeline-type duration`. Python: `rerun.chunk.McapReader(path).stream().write_rrd(out)`,
 or `rr.log_file_from_path("x.mcap")`. `rerun mcap check` reports per-channel status (all `ok` here).
 
 | Channel | Result in Rerun |
 |---|---|
 | `foxglove.FrameTransform` (protobuf) | `Transform3D` with `parent_frame`/`child_frame` |
-| `foxglove.PointCloud` (protobuf) | `Points3D` + `InstancePoses3D` + `CoordinateFrame` |
+| `foxglove.PointCloud` (protobuf) | `Points3D` + `InstancePoses3D` + `CoordinateFrame`; make `pose.position` present (`pc.pose.position.SetInParent()`): with only `pose.orientation` set the `.rrd` gets null `InstancePoses3D:translations` and `rerun rrd verify` fails (`Expected non-nullable data`; 0.43.2 too) |
 | `foxglove.CompressedImage`, `foxglove.Log` | `EncodedImage`, `TextLog` |
 | custom protobuf `robot.v1.RobotFrame` | reflected: column `/robot/frame_pb:robot.v1.RobotFrame:message` (Arrow struct mirroring the message) |
 | custom `ros2msg` + `cdr` | reflected: `/robot/frame_cdr:robot_msgs.msg.RobotFrame:message` — **only if the schema text includes every dependency**, down to `builtin_interfaces/Time`; otherwise WARN `cannot be resolved by reflection` and raw bytes |
@@ -180,9 +192,10 @@ or `rr.log_file_from_path("x.mcap")`. `rerun mcap check` reports per-channel sta
 ROS 2 standard types map to archetypes too (`sensor_msgs/Image`, `CompressedImage`, `CameraInfo`→`Pinhole`,
 `PointCloud2`, `tf2_msgs/TFMessage`, `PoseStamped`, `NavSatFix`, `Imu`/`JointState`→`Scalars`, `rcl_interfaces/Log`,
 `OccupancyGrid`). Timelines: `message_log_time`, `message_publish_time`, plus `ros2_timestamp` (header stamps) or
-Foxglove `timestamp`. Docs: `docs/content/concepts/logging-and-ingestion/mcap/*.md`.
+Foxglove `timestamp`. Docs: `docs/content/logging-and-ingestion/import/mcap/*.md` (0.44 moved the whole docs tree from
+`concepts/`, `howto/` to `logging-and-ingestion/`, `query-and-transform/`, `viewer/`, `train/`; also `import/mjcf.md`, `urdf.md`).
 
-## 8. Zenoh → Rerun bridge (tested: 180/180 samples, 3 encodings, Mac and Linux)
+## 8. Zenoh → Rerun bridge (tested: 180/180 samples, 3 encodings, Mac and Linux, 0.43.2 and 0.44.0)
 
 ```python
 q = queue.Queue(maxsize=1000)
@@ -218,11 +231,18 @@ with ViewerClient.spawn(headless=True) as viewer:          # offscreen viewer + 
     viewer.save_screenshot("all.png"); viewer.save_screenshot("3d.png", view_id=view.id)
     rec.disconnect()
 ```
-Pitfalls: `--screenshot-to` captures as soon as the first frames load (the time cursor was at frame 6 of 99):
-use the Python client and wait, or a blueprint with a fixed time. On Linux run it with `env -u DISPLAY` when
-an SSH X11 `DISPLAY` is set: with a forwarded display it printed `X11 connection rejected because of wrong
-authentication`, still wrote the PNG, but never exited. Look at screenshots with the image reader instead of
-guessing. `rerun viewer-mcp` lets an MCP client drive a live viewer.
+Pitfalls: `--screenshot-to` captures as soon as the first frames load (0.44.0: Mac frame 9 with 19/20 chunks,
+Linux frame 3 with 5/20 and empty views): use the Python client and wait, or a blueprint with a fixed time. On
+Linux use `env -u DISPLAY` when an SSH X11 `DISPLAY` is set (`X11 connection rejected because of wrong
+authentication`; 0.43.2 then never exited, 0.44.0 did). Look at screenshots with the image reader instead of
+guessing. 0.44 client extras: `list_view_types()`, `get_settings()`/`set_settings({...})` (persists).
+
+**MCP for agents**: `rerun mcp` (0.44; was `rerun viewer-mcp`; `"command": "rerun", "args": ["mcp"]`). Toolsets
+`--toolsets viewer,egui,catalog` (default all): `viewer_*` tools drive a running viewer (renamed from `rerun_*`: fix
+allow/deny lists, e.g. `mcp__rerun__viewer_get_state`; `--endpoint http://127.0.0.1:9876` or the agent's
+`viewer_connect`); `catalog_*` tools list and SQL-query datasets, viewer optional (`--catalog-url`,
+`--catalog-read-only`; writes ask first). A stale `viewer-mcp` config does not error out: the CLI opens it as a
+file, starts a viewer and logs `Failed to parse URL: viewer-mcp`. The viewer also has an experimental agent panel.
 
 ## 10. Memory and performance
 
@@ -237,7 +257,8 @@ guessing. `rerun viewer-mcp` lets an MCP client drive a live viewer.
 
 ## 11. Checklist
 
-1. Pin `rerun-sdk` and match viewer/SDK minor versions; add DataFusion if you query.
+1. Pin `rerun-sdk` and match viewer/SDK minor versions; add DataFusion if you query; after an upgrade, read the
+   release's breaking changes (0.44: `rerun mcp`, `viewer_*` tool names, `RegisteredBlueprint`).
 2. Static for constants, timelines for everything else; one thread sets time and logs (or pass explicit `TimeColumn`s).
 3. Put the blueprint in the file (`default_blueprint=`) so screenshots and colleagues see the intended layout.
 4. Verify outputs: `rerun rrd verify`, `rrd stats`, a dataframe query, a headless screenshot.

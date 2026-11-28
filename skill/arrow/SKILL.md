@@ -13,11 +13,12 @@ Reference library (proposed ids): `arrow-format-source` (spec: `docs/source/form
 `library_search query="ArrowArrayViewSetArray" sources=["nanoarrow-source"]` for exact signatures. Online:
 https://arrow.apache.org/docs/, https://arrow.apache.org/nanoarrow/, https://docs.rs/arrow.
 
-## 0. Versions (13 Nov 2026, verify)
+## 0. Versions (27 Nov 2026, verify)
 
 - **Arrow C++/pyarrow 26.0.1** (tag `apache-arrow-26.0.1`, PyPI 2026-11-03; conda-forge `pyarrow`/`libarrow`
   26.0.1). Major release about every 3 months; C++ and Python move together.
-- **arrow-rs 60.1.0** (crates `arrow`, `parquet`, `arrow-flight`, 2026-10-28; own numbering, monthly).
+- **arrow-rs 60.2.0** (crates `arrow`, `parquet`, `arrow-flight`; tagged 2026-11-18, on crates.io 2026-11-21; own
+  numbering, monthly). 60.2 breaking change: bloom filters on encrypted Parquet columns now error (§8).
 - **nanoarrow 0.9.0** (tag `apache-arrow-nanoarrow-0.9.0`; conda-forge `libnanoarrow` (C) and `nanoarrow` (Python)).
 - Pixi: `pixi add pyarrow` gives core + Parquet + dataset + compute but **not Flight**: add `libarrow-flight`
   (conda-forge also has `pyarrow-all` 26.0.1 with every component; not tried). Without it: `ImportError: The pyarrow installation is not built with support for
@@ -240,12 +241,19 @@ array has `n_buffers = 1` (validity, may be NULL). Build: `odin build dir -build
   `ipc.read_record_batch(buf, schema)` per message); decode with `pa.py_buffer(sample.payload.to_bytes())`. dora
   nodes already exchange Arrow arrays (`node.send_output("out", pa.array(x), metadata)`). nanoarrow_ipc decodes
   the same bytes in C/microcontroller-class code. See zenoh, zenoh-ros2.
-- **Rust**: `arrow` 60.1 (`RecordBatch`, `arrow::ffi::{FFI_ArrowArray, FFI_ArrowSchema}`,
-  `arrow::ffi_stream`), `parquet` 60.1 (`ArrowWriter`, `ParquetRecordBatchReaderBuilder`, `WriterProperties`),
-  `arrow-flight`. Validated: `ArrowWriter` with `WriterProperties::builder().set_compression(Compression::ZSTD(
-  ZstdLevel::try_new(3)?)).set_max_row_group_row_count(Some(250_000))` → 4 row groups, read back with
+- **Rust**: `arrow` 60.2 (`RecordBatch`, `arrow::ffi::{FFI_ArrowArray, FFI_ArrowSchema}` and `arrow::ffi_stream`,
+  re-exports: sources in `arrow-array/src/ffi.rs`, `ffi_stream.rs`, structs in `arrow-data`/`arrow-schema` `src/ffi.rs`), `parquet` 60.2 (`ArrowWriter`,
+  `ParquetRecordBatchReaderBuilder`, `WriterProperties`), `arrow-flight`. Validated (60.1 and 60.2): `ArrowWriter`
+  with `WriterProperties::builder().set_compression(Compression::ZSTD(ZstdLevel::try_new(3)?))
+  .set_max_row_group_row_count(Some(250_000))` → 4 row groups, read back with
   `ParquetRecordBatchReaderBuilder::try_new(file)?.build()?`. `set_max_row_group_size` no longer exists in 60.x
-  (compile error; `set_max_row_group_bytes` is the byte-based alternative). Polars uses its own Arrow implementation (polars-arrow) but speaks the same C ABI.
+  (compile error; `set_max_row_group_bytes` is the byte-based alternative). Bloom filters:
+  `.set_bloom_filter_enabled(true)` or `.set_column_bloom_filter_enabled("t".into(), true)`, read with
+  `builder.get_row_group_column_bloom_filter(rg, col)?` → `Sbbf::check(&v)`. **60.2** (feature `encryption`): bloom
+  filters on an encrypted column make `ArrowWriter::try_new` fail with `NYI: Encryption is not currently supported
+  with bloom filters, but bloom filters are enabled for encrypted column 'x'` (60.1 wrote them in plaintext);
+  uniform encryption counts every column, so enable bloom filters only on unencrypted columns (tested: written and
+  decrypted). Polars uses its own Arrow implementation (polars-arrow) but speaks the same C ABI.
 
 ## 9. Measured (powerslabs: 24-core x86_64, 125 GB RAM, NVMe; pyarrow 26.0.1; warm page cache)
 

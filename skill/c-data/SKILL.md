@@ -7,11 +7,12 @@ description: Fast data handling in C (and from Odin) with yyjson (read/write, in
 
 ## Ground truth first
 
-- Versions as of Nov 2026 (verify with `git ls-remote --tags`): **yyjson 0.13.0** (2026-09-08), **xxHash v0.8.4**,
-  **zstd v1.5.7** (Feb 2025, still the latest; ignore the odd `vxyz` and `zstd-0.x` tags), **lz4 v1.11.1** (1.11.0
+- Versions as of 27 Nov 2026 (verify with `git ls-remote --tags`): **yyjson 0.13.0** (2026-09-08), **xxHash v0.8.4**,
+  **zstd v1.6.0** (2026-11-23, a security release: CVE-2026-124851 plus many memory-safety fixes in streaming, MT,
+  dictionary and legacy code — **update from 1.5.x**; ignore the odd `vxyz` and `zstd-0.x` tags), **lz4 v1.11.1** (1.11.0
   fixed a data-corruption bug in ring-buffer decoding and rare streaming cases; 1.11.1 fixed an out-of-bounds write in
   `LZ4_resetStreamHC` at levels ≥ 10 — don't stay on 1.10/1.11.0).
-- conda-forge (`pixi add zstd lz4-c xxhash`, `pkg-config --cflags --libs libzstd liblz4 libxxhash`): zstd 1.5.7,
+- conda-forge (`pixi add zstd lz4-c xxhash`, `pkg-config --cflags --libs libzstd liblz4 libxxhash`): zstd 1.6.0,
   lz4-c 1.11.1, xxhash **0.8.3** (one behind). `lz4` and `zstandard` on conda-forge are the Python bindings; there is no
   yyjson package (`r-yyjsonr` is R): vendor `src/yyjson.{c,h}` (two files). xxHash is header-only with
   `#define XXH_INLINE_ALL` before `#include "xxhash.h"` (no library to link, best speed for small inputs).
@@ -84,30 +85,35 @@ ZSTD_CCtx_setPledgedSrcSize(cc, total);                /* optional: puts content
 size_t rem = ZSTD_compressStream2(cc, &ob, &in, last ? ZSTD_e_end : ZSTD_e_continue);   /* loop until in consumed; with e_end until rem == 0 */
 ZSTD_decompressStream(dctx, &ob, &in);                 /* loop while in.pos < in.size */
 ```
-- Measured (23.8 MB JSON, single thread, Mac; ratio · compress MB/s · decompress MB/s):
+- Measured (24.0 MB conda-forge `channeldata.json` of 27 Nov 2026, single thread, conda-forge zstd 1.6.0 / lz4-c
+  1.11.1, median of 3 runs; ratio · compress MB/s · decompress MB/s on the Mac M2 Max, then the Core Ultra 9 285K):
 
 | codec | ratio | comp | dec | 285K comp/dec |
 |---|---|---|---|---|
-| zstd -5 (fast) | 3.73 | 959 | 2644 | 1148 / 3974 |
-| zstd 1 | 5.37 | 766 | 2144 | 967 / 3266 |
-| **zstd 3 (default)** | **5.93** | 503 | 2047 | 683 / 3163 |
-| zstd 9 | 7.02 | 108 | 2275 | 149 / 3380 |
-| zstd 19 | 8.09 | 3 | 2282 | 3 / 2229 |
-| lz4 (block) | 3.82 | 959 | 5300 | 892 / 4694 |
-| lz4hc 9 / 12 | 5.08 / 5.12 | 86 / 35 | 5964 | 70 / 4991 |
-| lz4 frame, 4 MB blocks, checksum | 3.82 | 788 | 2589 | 666 / 2108 |
+| zstd -5 (fast) | 3.73 | 958 | 2817 | 1173 / 4057 |
+| zstd 1 | 5.37 | 788 | 2228 | 961 / 3373 |
+| **zstd 3 (default)** | **5.93** | 552 | 2109 | 679 / 3264 |
+| zstd 9 | 7.02 | 124 | 2453 | 157 / 3679 |
+| zstd 19 | 8.10 | 4 | 2520 | 5 / 3574 |
+| lz4 (block) | 3.82 | 955 | 5554 | 1189 / 6992 |
+| lz4hc 9 / 12 | 5.08 / 5.12 | 88 / 36 | 5998 | 116 / 7751 |
+| lz4 frame, 4 MB blocks, checksum | 3.82 | 810 | 2668 | 880 / 2824 |
 
+- **1.6.0 vs 1.5.7** (3 interleaved runs each): ratios identical; conda-forge builds ±3% on the Mac, decompression
+  +2–3% on the 285K. Built from source with one compiler (clang 21 or 23, make or CMake), 1.6.0 **decompressed 10–16%
+  slower on the M2 Max** (JSON level 3 ≈ 2400 → 2050 MB/s, also `zstd -b3 -T1`); disabling only its new AArch64
+  `ZSTD_decodeSequence` path restored 1.5.7's speed. The "faster on AArch64" note didn't hold on M2: measure your target.
 - Binary sensor log (200 k × 60 B IMU/encoder records, 12 MB, packed AoS): zstd 3 only **1.61×**, zstd 19 2.36×,
   lz4 1.20×. The same data as **struct-of-arrays + delta-coded integers + byte-shuffled floats** (all byte 0s of a column,
-  then byte 1s…; reversible, like Blosc/Parquet filters): zstd 3 **4.27×** at 1.3 GB/s, lz4 3.39× at 3.4 GB/s, zstd 19
+  then byte 1s…; reversible, like Blosc/Parquet filters): zstd 3 **4.27×** at 1.3 GB/s, lz4 3.39× at 3.7 GB/s, zstd 19
   4.71×. Preprocessing beats any level change for numeric logs.
-- Multithreading: `nbWorkers=8` at level 3 on the 24 MB JSON: 1.48 GB/s (Mac) with the default job size, **3.5 GB/s**
-  (Mac) / 2.0 GB/s (285K) with `ZSTD_c_jobSize` 1 MB (ratio 5.92 → 5.84). The default job is several MB, so small
-  inputs get few jobs. Level 19 barely gained (3 → 6 MB/s): high levels use huge jobs; MT pays off on large streams.
-  CLI: `zstd -T0` (all cores), `--long` for large-window dedup, `--ultra -20..-22`.
+- Multithreading: `nbWorkers=8` at level 3 on the 24 MB JSON: 1.5 GB/s (Mac) / 1.4 GB/s (285K) with the default job
+  size, **3.7 GB/s** (Mac) / 1.7 GB/s (285K) with `ZSTD_c_jobSize` 1 MB (ratio 5.92 → 5.84). The default job is several
+  MB, so small inputs get few jobs. Level 19 barely gained (4 → 6 MB/s): high levels use huge jobs; MT pays off on large
+  streams. CLI: `zstd -T0` (all cores), `--long` for large-window dedup, `--ultra -20..-22`.
 - **Dictionaries** for many small messages (the conda-forge per-package JSON objects, 616 B average): zstd 3 gives 1.75×,
-  lz4 1.37×, **zstd 3 + a 110 KB dictionary 4.03×**. `ZDICT_trainFromBuffer(dict, 112640, samples, sizes, n)` (concatenated
-  samples + size array; 28 k samples in 0.55 s), `ZSTD_createCDict(dict, sz, level)` + `ZSTD_compress_usingCDict`,
+  lz4 1.37×, **zstd 3 + a 110 KB dictionary 4.04×**. `ZDICT_trainFromBuffer(dict, 112640, samples, sizes, n)` (concatenated
+  samples + size array; 28 k samples in 0.5 s), `ZSTD_createCDict(dict, sz, level)` + `ZSTD_compress_usingCDict`,
   `ZSTD_createDDict` + `ZSTD_decompress_usingDDict`. CLI: `zstd --train samples/* -o dict`, `zstd -D dict`. The frame
   stores the dict ID; decompressing without it fails with "Dictionary mismatch" (validated). Version the dictionary with
   your protocol and retrain when the data changes.
@@ -115,6 +121,14 @@ ZSTD_decompressStream(dctx, &ob, &in);                 /* loop while in.pos < in
   `setPledgedSrcSize` leaves the content size **unknown** in the header (validated), so decoders must stream or grow
   the buffer. With the checksum on, a flipped byte gave "Data corruption detected" (Mac) / "Restored data doesn't match
   checksum" (Linux) — either way an error, never silent garbage. Spec: `doc/zstd_compression_format.md`.
+- **1.6.0 changes** (checked against 1.5.7, Mac and Linux): legacy formats are **off by default** in all build systems
+  (conda-forge's lib has no `ZSTDv0*` symbols); a v0.7 frame fails with "Unknown frame descriptor". For pre-v0.8 data
+  build with `ZSTD_LEGACY_SUPPORT=N` (make: formats ≥ v0.N; CMake `-DZSTD_LEGACY_SUPPORT=ON` = 5; meson `legacy_level`).
+  Stable now (no `ZSTD_STATIC_LINKING_ONLY`): `ZSTD_getFrameHeader()`/`ZSTD_FrameHeader`, `ZSTD_createDDict_byReference()`,
+  `ZSTD_CCtx_/DCtx_loadDictionary_advanced()` + `ZSTD_dlm_*`/`ZSTD_dct_*`. Removed: `ZSTD_copyCCtx/DCtx` (compile
+  error). One-shot `ZSTD_decompressDCtx()`/`_usingDict`/`_usingDDict` reset an unfinished streaming session. CLI:
+  `--jobsize=#` (= `-B#`), bench `--split=#` (old hidden name `--block-size`), `G`/`GB`/`GiB` sizes, `--patch-apply=old`,
+  and `-b` uses 1 thread unless `-T#` (1.5.7: cores/4, max 4 — mind this when comparing CLI benchmarks).
 
 ## lz4 (validated)
 
@@ -170,9 +184,11 @@ size_t o = out_cap, i = fc; LZ4F_decompress(dx, out, &o, fdst, &i, NULL);   /* l
     1.68 GB/s vs `json.parse` 0.24 GB/s (Mac; 0.89 vs 0.14 on the 285K), and `json.destroy_value` alone took 59–79 ms:
     parse into an arena (`context.allocator = virtual.arena_allocator(&a)`, see odin-performance) and free it at once.
 - Linking pitfall (macOS): Odin passes `-L/usr/local/lib -L/opt/local/lib` **before** `-extra-linker-flags`, so
-  `system:lz4` picked MacPorts' 1.10.0 instead of the Pixi 1.11.1 (`otool -L` showed it). Check with `-print-linker-flags`
-  and `otool -L`/`ldd`; link a full path (`foreign import lz4 "/path/liblz4.a"`) to be sure. On Linux the Pixi libraries
-  were used (`-extra-linker-flags:"-L$CONDA_PREFIX/lib -Wl,-rpath,$CONDA_PREFIX/lib"`).
+  `system:lz4`/`system:zstd` picked MacPorts' lz4 1.10.0 and zstd 1.5.7 over Pixi's 1.11.1/1.6.0 (`otool -L`). Check
+  with `-print-linker-flags` and `otool -L`/`ldd`. Absolute `foreign import` paths are rejected ("Invalid import path");
+  use a collection: `foreign import zstd "pixi:libzstd.dylib"` + `-collection:pixi=$CONDA_PREFIX/lib` (and the rpath
+  flag) linked Pixi's 1.6.0. On Linux `system:` used the Pixi libraries
+  (`-extra-linker-flags:"-L$CONDA_PREFIX/lib -Wl,-rpath,$CONDA_PREFIX/lib"`).
 
 ## Pitfalls
 

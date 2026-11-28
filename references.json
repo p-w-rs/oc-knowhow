@@ -2130,12 +2130,12 @@
     },
     {
       "id": "sokol-source",
-      "title": "sokol headers (commit 93aa187b5d38)",
+      "title": "sokol headers (commit 09558a100857)",
       "authors": "Andre Weissflog",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/floooh/sokol/tar.gz/93aa187b5d38",
-      "version": "93aa187b5d38",
+      "url": "https://codeload.github.com/floooh/sokol/tar.gz/09558a100857",
+      "version": "09558a100857",
       "paths": [
         "sokol_app.h",
         "sokol_gfx.h",
@@ -2161,12 +2161,12 @@
     },
     {
       "id": "sokol-odin-source",
-      "title": "sokol-odin bindings (commit ae94aa54d4ec)",
+      "title": "sokol-odin bindings (commit 4669f2bc079d)",
       "authors": "Andre Weissflog",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/floooh/sokol-odin/tar.gz/ae94aa54d4ec",
-      "version": "ae94aa54d4ec",
+      "url": "https://codeload.github.com/floooh/sokol-odin/tar.gz/4669f2bc079d",
+      "version": "4669f2bc079d",
       "paths": [
         "sokol",
         "examples",
@@ -2235,12 +2235,12 @@
     },
     {
       "id": "enet-zpl-source",
-      "title": "ENet, zpl-c fork (v2.7.0, single header)",
+      "title": "ENet, zpl-c fork (v2.7.2, single header)",
       "authors": "zpl-c, after Lee Salzman",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/zpl-c/enet/tar.gz/refs/tags/v2.7.0",
-      "version": "v2.7.0",
+      "url": "https://codeload.github.com/zpl-c/enet/tar.gz/refs/tags/v2.7.2",
+      "version": "v2.7.2",
       "paths": [
         "include",
         "README.md",
@@ -2599,12 +2599,12 @@
     },
     {
       "id": "rerun-python-source",
-      "title": "Rerun 0.43.2: Python SDK, docs and snippets",
+      "title": "Rerun 0.44.0: Python SDK, docs and snippets",
       "authors": "Rerun",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/rerun-io/rerun/tar.gz/refs/tags/0.43.2",
-      "version": "0.43.2",
+      "url": "https://codeload.github.com/rerun-io/rerun/tar.gz/refs/tags/0.44.0",
+      "version": "0.44.0",
       "paths": [
         "rerun_py/rerun_sdk/rerun",
         "docs/content",
@@ -2612,7 +2612,7 @@
         "docs/snippets/all/howto",
         "docs/snippets/all/views",
         "docs/snippets/all/tutorials",
-        "examples/python/mcap",
+        "examples/python/rrd_conversion",
         "examples/python/dataframe_query",
         "examples/python/blueprint",
         "LICENSE-MIT"
@@ -2697,12 +2697,12 @@
     },
     {
       "id": "protobuf-docs-source",
-      "title": "protobuf.dev documentation (commit f72a6a6, 13 Nov 2026)",
+      "title": "protobuf.dev documentation (commit 7712b0c, 19 Nov 2026)",
       "authors": "Google",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/protocolbuffers/protocolbuffers.github.io/tar.gz/f72a6a648b34e9e098cbce1519bc9c8139105d66",
-      "version": "f72a6a6",
+      "url": "https://codeload.github.com/protocolbuffers/protocolbuffers.github.io/tar.gz/7712b0c36f911534ef07b755900aa142efc39b9f",
+      "version": "7712b0c",
       "paths": [
         "content/programming-guides",
         "content/reference/protobuf",
@@ -2850,15 +2850,17 @@
     },
     {
       "id": "arrow-rs-source",
-      "title": "arrow-rs 60.1.0 (selected files)",
+      "title": "arrow-rs 60.2.0 (selected files)",
       "authors": "Apache Arrow",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/apache/arrow-rs/tar.gz/refs/tags/60.1.0",
-      "version": "60.1.0",
+      "url": "https://codeload.github.com/apache/arrow-rs/tar.gz/refs/tags/60.2.0",
+      "version": "60.2.0",
       "paths": [
-        "arrow/src/ffi.rs",
-        "arrow/src/ffi_stream.rs",
+        "arrow-array/src/ffi.rs",
+        "arrow-data/src/ffi.rs",
+        "arrow-schema/src/ffi.rs",
+        "arrow-array/src/ffi_stream.rs",
         "parquet/src/file/properties.rs",
         "parquet/src/arrow/arrow_writer/mod.rs",
         "parquet/src/arrow/arrow_reader/mod.rs",
@@ -2877,12 +2879,12 @@
     },
     {
       "id": "polars-guide-source",
-      "title": "Polars user guide and upgrade notes (py-2.1.0)",
+      "title": "Polars user guide and upgrade notes (py-2.2.0)",
       "authors": "Polars",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/pola-rs/polars/tar.gz/refs/tags/py-2.1.0",
-      "version": "py-2.1.0",
+      "url": "https://codeload.github.com/pola-rs/polars/tar.gz/refs/tags/py-2.2.0",
+      "version": "py-2.2.0",
       "paths": [
         "docs/source/user-guide",
         "docs/source/releases/upgrade",
@@ -3039,12 +3041,12 @@
     },
     {
       "id": "renode-source",
-      "title": "Renode 1.17.0 (platforms, scripts, tests)",
+      "title": "Renode 1.17.1 (platforms, scripts, tests)",
       "authors": "Antmicro",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/renode/renode/tar.gz/refs/tags/v1.17.0",
-      "version": "v1.17.0",
+      "url": "https://codeload.github.com/renode/renode/tar.gz/refs/tags/v1.17.1",
+      "version": "v1.17.1",
       "paths": [
         "platforms/cpus",
         "platforms/boards",
@@ -3137,12 +3139,12 @@
     },
     {
       "id": "esptool-source",
-      "title": "esptool 5.6.0 (docs and CLI)",
+      "title": "esptool 5.7.0 (docs and CLI)",
       "authors": "Espressif",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/espressif/esptool/tar.gz/refs/tags/v5.6.0",
-      "version": "v5.6.0",
+      "url": "https://codeload.github.com/espressif/esptool/tar.gz/refs/tags/v5.7.0",
+      "version": "v5.7.0",
       "paths": [
         "docs/en",
         "esptool/cli_util.py",
@@ -3338,12 +3340,12 @@
     },
     {
       "id": "mimalloc-source",
-      "title": "mimalloc v3.7.0",
+      "title": "mimalloc v3.7.1",
       "authors": "Microsoft",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/microsoft/mimalloc/tar.gz/refs/tags/v3.7.0",
-      "version": "v3.7.0",
+      "url": "https://codeload.github.com/microsoft/mimalloc/tar.gz/refs/tags/v3.7.1",
+      "version": "v3.7.1",
       "paths": [
         "include/mimalloc.h",
         "readme.md",
@@ -3522,12 +3524,12 @@
     },
     {
       "id": "zstd-source",
-      "title": "Zstandard v1.5.7 (API and format docs)",
+      "title": "Zstandard v1.6.0 (API and format docs)",
       "authors": "Meta",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/facebook/zstd/tar.gz/refs/tags/v1.5.7",
-      "version": "v1.5.7",
+      "url": "https://codeload.github.com/facebook/zstd/tar.gz/refs/tags/v1.6.0",
+      "version": "v1.6.0",
       "paths": [
         "lib/zstd.h",
         "lib/zdict.h",
@@ -3890,12 +3892,12 @@
     },
     {
       "id": "mujoco-menagerie",
-      "title": "MuJoCo Menagerie v2026.11.3 (robot models)",
+      "title": "MuJoCo Menagerie v2026.11.4 (robot models)",
       "authors": "Google DeepMind",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/google-deepmind/mujoco_menagerie/tar.gz/refs/tags/v2026.11.3",
-      "version": "v2026.11.3",
+      "url": "https://codeload.github.com/google-deepmind/mujoco_menagerie/tar.gz/refs/tags/v2026.11.4",
+      "version": "v2026.11.4",
       "paths": [
         "README.md",
         "LICENSE"
@@ -3912,12 +3914,12 @@
     },
     {
       "id": "genesis-source",
-      "title": "Genesis v1.4.7",
+      "title": "Genesis v1.5.0",
       "authors": "Genesis-Embodied-AI",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/Genesis-Embodied-AI/Genesis/tar.gz/refs/tags/v1.4.7",
-      "version": "v1.4.7",
+      "url": "https://codeload.github.com/Genesis-Embodied-AI/Genesis/tar.gz/refs/tags/v1.5.0",
+      "version": "v1.5.0",
       "paths": [
         "genesis/options",
         "genesis/engine/entities",
@@ -3925,6 +3927,8 @@
         "genesis/engine/sensors",
         "genesis/vis/camera.py",
         "genesis/engine/scene.py",
+        "genesis/engine/solvers/rigid/rigid_solver.py",
+        "genesis/utils/urdf.py",
         "genesis/__init__.py",
         "examples",
         "RELEASE.md",
@@ -3938,7 +3942,7 @@
         "source"
       ],
       "status": "current",
-      "useFor": "option fields, entity control signatures, examples per feature",
+      "useFor": "option fields, entity control signatures, solver getters (copy= views), URDF import rules (effort), examples per feature",
       "exclude": [
         "genesis/assets"
       ]
@@ -4021,15 +4025,18 @@
     },
     {
       "id": "mujoco-playground-source",
-      "title": "MuJoCo Playground v1.0.1",
+      "title": "MuJoCo Playground v1.1.0 (with reaf-sim)",
       "authors": "Google DeepMind",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/google-deepmind/mujoco_playground/tar.gz/refs/tags/v1.0.1",
-      "version": "v1.0.1",
+      "url": "https://codeload.github.com/google-deepmind/mujoco_playground/tar.gz/refs/tags/v1.1.0",
+      "version": "v1.1.0",
       "paths": [
         "mujoco_playground",
-        "learning",
+        "third_party/reaf_sim/reaf",
+        "third_party/reaf_sim/docs",
+        "third_party/reaf_sim/README.md",
+        "third_party/reaf_sim/LICENSE",
         "README.md",
         "LICENSE"
       ],
@@ -4040,10 +4047,7 @@
         "source"
       ],
       "status": "current",
-      "useFor": "MJX RL environments and training scripts",
-      "exclude": [
-        "mujoco_playground/_src/locomotion/go1/xmls/assets"
-      ],
+      "useFor": "PyTorch + MuJoCo Warp RL environments and tasks (reaf-sim), RSL-RL training, the playground CLI, curricula, sim-to-real deployment",
       "extensions": [
         ".py"
       ]
@@ -4535,12 +4539,12 @@
     },
     {
       "id": "focus-editor-source",
-      "title": "Focus text editor (commit 3e1f36d)",
+      "title": "Focus text editor (commit a193425)",
       "authors": "Focus contributors (focus-editor)",
       "year": 2026,
       "kind": "source-tree",
-      "url": "https://codeload.github.com/focus-editor/focus/tar.gz/3e1f36d2302aeaf90fe85fc0670db4526a8ee45f",
-      "version": "3e1f36d",
+      "url": "https://codeload.github.com/focus-editor/focus/tar.gz/a1934252e56441a1bd9c451310e0b5286f688247",
+      "version": "a193425",
       "paths": [
         "README.md",
         "first.jai",
@@ -4565,7 +4569,7 @@
       ],
       "status": "current",
       "useFor": "how a large, shipped Jai program is organized: platform layers, build metaprogram with compiler-version gating (MIN_COMPILER_VERSION) and macOS bundling, text buffers, rendering, config parsing",
-      "note": "compiles with beta 0.2.032: after the one-word NewArray initialized -> initialize fix (0.2.032 rename): release build, Focus.app and .dmg in 32 s on macOS arm64. Excludes the vendored freetype/libxkbcommon binaries and the copies of uniform and Tracy bindings (indexed from their own entries)."
+      "note": "compiles with beta 0.2.032 after renaming the `initialized =` argument to `initialize =` in its 21 New/NewArray calls (the 0.2.032 rename): release build and .dmg in 31 s on macOS arm64 (commit a193425, 28 Nov 2026). Excludes the vendored freetype/libxkbcommon binaries and the copies of uniform and Tracy bindings (indexed from their own entries)."
     },
     {
       "id": "jai-community-wiki",

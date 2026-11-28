@@ -95,7 +95,8 @@ CPUs with AES instructions, `crypto_aead_aegis256_*` (32 B key, 32 B nonce) is 5
 
 ## Encrypting ENet traffic (tested design)
 
-ENet has no security (see c-networking). Validated with zpl-c/enet v2.7.0: `tests/enet_secure.c` (both AEAD backends),
+ENet has no security (see c-networking). Validated with zpl-c/enet v2.7.0 and re-run 27 Nov 2026 with v2.7.2 (loopback:
+Mac 12/12, Linux 11/12 runs; the one failure was packet loss, see 6): `tests/enet_secure.c` (both AEAD backends),
 1000 reliable + 1000 unsequenced 500-byte packets echoed, loopback on Mac and Linux and Mac → Jetson over a VPN
 tunnel (RTT 66 ms), with and without simulated loss.
 
@@ -120,7 +121,9 @@ tunnel (RTT 66 ms), with and without simulated loss.
    ahead on unreliable channels (packets were lost), keep the previous key for late packets, and reject anything else.
 6. **Attack tests** (all rejected, server counted exactly `auth_fail=3, replay=1`): flipped ciphertext bit, a resent
    old valid packet (replay), forged epoch byte, truncated 12-byte packet. Loss test: 40% of unsequenced packets dropped
-   including a 300-packet gap (1.5 epochs) → all 600 delivered packets decrypted.
+   including a 300-packet gap (1.5 epochs) → all 600 delivered packets decrypted. Unsequenced means unreliable even on
+   loopback: one Linux run in 26 lost a burst of 182 packets (auth failures stayed at the 3 test packets; 2.7.0 and
+   2.7.2 interleaved, 40 runs: all complete). Check the crypto counters exactly, but judge delivery over many runs.
 
 **Bug found while testing**: the first version shared one epoch per direction across channels. ENet delivers
 unsequenced packets immediately but holds reliable ones back for ordering, so the epoch advanced on one channel and

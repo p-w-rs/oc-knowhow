@@ -213,7 +213,9 @@ Foxglove does); `.bfbs` parsed with generated `reflection.Schema` and its root t
 ros1, protobuf, and json`). For Foxglove 3D/image panels use the Foxglove schemas (`foxglove.PointCloud` with
 `PackedElementField` x/y/z FLOAT32 and `point_stride` 12, `foxglove.FrameTransform`, `foxglove.CompressedImage`):
 Rerun also turns those into archetypes, while custom protobuf/ros2msg become queryable struct columns and
-FlatBuffers stay raw bytes (**rerun** §7).
+FlatBuffers stay raw bytes (**rerun** §7). Fill sub-messages completely: a `PointCloud` with only
+`pose.orientation` set (no `pose.position`) decodes fine in `mcap_protobuf`, but Rerun's import writes null
+translations that fail `rerun rrd verify`; `pc.pose.position.SetInParent()` fixes it.
 
 ## 8. Odin (tested, dev-2026-11a)
 

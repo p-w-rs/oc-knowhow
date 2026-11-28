@@ -9,8 +9,9 @@ description: Build windowed, rendering, input and audio programs in C (and from 
 
 - Versions as of Nov 2026 (verify: `git ls-remote --tags https://github.com/libsdl-org/SDL.git | tail`): **SDL 3.4.20**
   (`release-3.4.20`), SDL_image 3.4.8, SDL_ttf 3.2.2, SDL_mixer 3.2.4. **sokol** has no release tags: pin a commit of
-  `master` (validated 93aa187, 2026-11-10) and read `CHANGELOG.md` before updating; it breaks APIs (Oct 2026:
-  `sg_image_desc.data` became one `sg_range`; Linux sokol_audio switched to PulseAudio). **clay**: last release
+  `master` (validated 09558a1, 2026-11-21, with sokol-odin 4669f2b and sokol-tools-bin 4f5b279) and read
+  `CHANGELOG.md` before updating; it breaks APIs (Oct 2026: `sg_image_desc.data` became one `sg_range`; Linux
+  sokol_audio switched to PulseAudio) and adds features (21 Nov: indirect draw/dispatch, below). **clay**: last release
   **v0.14** (2025-06) but `main` is 99 commits ahead with a **different declaration API** (below); the Odin bindings
   follow `main`. Read the header you actually compile against; never write clay code from memory.
 - Headers are the documentation: SDL `include/SDL3/*.h` (+ https://wiki.libsdl.org/SDL3/), sokol: the comment block at
@@ -79,7 +80,23 @@ Odin language details: odin, odin-targets.
   `layout(binding=0) uniform vs_params { … };`. Compile:
   `sokol-shdc -i tri.glsl -o tri.glsl.h -l glsl410:glsl300es:metal_macos:hlsl5:wgsl` (`-f sokol_odin` for Odin).
   It generates `tri_shader_desc(sg_query_backend())`, `ATTR_tri_<input>`, `UB_<block>`, `<block>_t` structs:
-  `.layout.attrs = { [ATTR_tri_position].format = SG_VERTEXFORMAT_FLOAT3, … }`.
+  `.layout.attrs = { [ATTR_tri_position].format = SG_VERTEXFORMAT_FLOAT3, … }`. Compute shaders (`@cs`) need
+  `local_size_x*y*z` to be a multiple of 32 or sokol-shdc stops with an error; a storage buffer is bound as a view:
+  `.views[VIEW_<name>] = sg_make_view(&(sg_view_desc){ .storage_buffer.buffer = buf })`.
+- **Indirect draw/dispatch** (sokol 21 Nov 2026, validated): a buffer with `.usage = { .indirect_buffer = true,
+  .storage_buffer = true }` (storage so a compute shader can write it; or only `.indirect_buffer` plus `.data` for CPU
+  args; size and offset multiples of 4) holds `sg_draw_indirect_args` {num_elements, num_instances, base_element,
+  base_instance}, `sg_draw_indirect_indexed_args` (+ `int32_t base_vertex`) or `sg_dispatch_indirect_args`; then
+  `sg_draw_indirect(buf, offset)` in a render pass or `sg_dispatch_indirect(buf, offset)` in a compute pass, one
+  argument set per call (no multi-draw). Compute backends only: on macOS GL 4.1 creating the buffer fails validation
+  (`VALIDATE_BUFFERDESC_INDIRECTBUFFER_SUPPORTED`, panic). Metal ran clean with validation on; on Linux GL 4.3
+  (llvmpipe) compute- and CPU-written args drew pixels byte-identical to `sg_draw`. `sg_features.draw_indirect_base_instance`
+  (false on GLES3/GL < 4.3) and `.draw_indirect_index_buffer_offset` (false on GL) gate those cases. Docs: "ON INDIRECT
+  DRAW AND DISPATCH" in `sokol_gfx.h`. Counters: `sg_enable_stats()`, then `sg_query_stats().cur_frame.num_draw_indirect`.
+- `util/sokol_cmdbuf.h` (since Sep 2026): record `scb_apply_pipeline/bindings/uniforms`, `scb_draw`,
+  `scb_draw_indirect`, `scb_dispatch…` into a `scb_make_cmdbuf()` buffer **outside** a pass and replay it with
+  `scb_submit(cb)` inside one (after `scb_setup`); useful to interleave buffer updates with draws or to keep debug/UI
+  drawing out of the main pass.
 - Link (from the `sokol_app.h` header): **macOS** compile as Objective-C (`-x objective-c` or a `.m` file) +
   `-framework Cocoa -framework QuartzCore` + `-framework Metal -framework MetalKit` (Metal) or `-framework OpenGL`
   (GLCORE). **Linux** `-pthread -lX11 -lXi -lXcursor -lGL -ldl -lm` (+`-lEGL` with `SOKOL_FORCE_EGL`, `-lvulkan`);
@@ -141,7 +158,11 @@ Odin language details: odin, odin-targets.
 - **sokol-odin** (https://github.com/floooh/sokol-odin): copy `sokol/`, build the C libs once
   (`cd sokol && ./build_clibs_macos.sh` / `build_clibs_linux.sh`, `build_clibs_wasm.sh`), generate shaders with
   `sokol-shdc … -f sokol_odin`, then `odin run examples/triangle`. Callbacks are `proc "c"`; packages
-  `sokol/{app,gfx,glue,log,…}`; default backend Metal on macOS, D3D11 on Windows, GL on Linux (`-define:SOKOL_USE_GL=true`).
+  `sokol/{app,gfx,glue,log,cmdbuf,…}`; default backend Metal on macOS, D3D11 on Windows, GL on Linux (`-define:SOKOL_USE_GL=true`).
+  Validated at 4669f2b (Mac): `triangle` (`-vet -strict-style`), `instancing-compute` (fails `-vet`: unused
+  `import "core:c"` upstream), and an own test drawing with `sg.draw_indirect(buf, 0)` from a
+  `sg.make_buffer({usage = {indirect_buffer = true}, data = …})` holding `sg.Draw_Indirect_Args`, directly and via
+  `scb.draw_indirect` + `scb.submit` (`import scb "sokol/cmdbuf"`).
 - **clay-odin** (clay `bindings/odin/clay-odin`, prebuilt `clay.a`/`.lib`/wasm `.o` per platform):
   `if clay.UI(clay.ID("Outer"))({ layout = { padding = clay.PaddingAll(16) } }) { … }`, `clay.Text(…)`,
   `clay.EndLayout(dt)`, measure/error callbacks are `proc "c"`. Tracks clay `main`; check `clay.odin` for exact procs.
